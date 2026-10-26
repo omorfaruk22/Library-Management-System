@@ -1,0 +1,38 @@
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { Search, UserRound, Mail, Phone, Eye, UserCheck, Ban, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useLocale } from '../i18n'
+import { Alert, Badge, Button, Card, EmptyState, Input, Modal, PageTitle, Spinner } from '../components'
+import { api, currency, date, message } from '../lib/api'
+
+type Student = { _id: string; name: string; email: string; studentId: string; phone?: string; status: 'active' | 'suspended'; createdAt: string; updatedAt?: string }
+type Loan = { _id: string; issuedAt: string; dueAt: string; returnedAt?: string; status: string; fine: number; book?: { title?: string; isbn?: string }; isOverdue?: boolean }
+type Pagination = { page: number; pages: number; total: number }
+export default function Students() {
+  const { t } = useLocale()
+  const [students, setStudents] = useState<Student[]>([])
+  const [query, setQuery] = useState('')
+  const [searchText, setSearchText] = useState('')
+  const [page, setPage] = useState(1)
+  const [pagination, setPagination] = useState<Pagination>({ page: 1, pages: 1, total: 0 })
+  const [busy, setBusy] = useState(true)
+  const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
+  const [detail, setDetail] = useState<{ student: Student; loans: Loan[] } | null>(null)
+  const [detailBusy, setDetailBusy] = useState(false)
+  const [detailError, setDetailError] = useState('')
+  const load = useCallback(async (targetPage = page, q = searchText) => {
+    setBusy(true)
+    try { const params = new URLSearchParams({ page: String(targetPage), limit: '10' }); if (q) params.set('q', q); const data = await api<{ students: Student[]; pagination: Pagination }>('/admin/students?' + params); setStudents(data.students); setPagination(data.pagination) }
+    catch (err) { setError(message(err)) } finally { setBusy(false) }
+  }, [page, searchText])
+  useEffect(() => { void load() }, [load])
+  const search = (event: FormEvent) => { event.preventDefault(); setPage(1); setSearchText(query.trim()) }
+  const showDetails = async (student: Student) => { setDetailBusy(true); setDetailError(''); setDetail(null); try { setDetail(await api<{ student: Student; loans: Loan[] }>('/admin/students/' + student._id)) } catch (err) { setDetailError(message(err)) } finally { setDetailBusy(false) } }
+  const changeStatus = async (student: Student) => { const status = student.status === 'active' ? 'suspended' : 'active'; try { await api('/admin/students/' + student._id + '/status', { method: 'PATCH', body: JSON.stringify({ status }) }); setNotice(t(status === 'active' ? 'activate' : 'suspend')); await load() } catch (err) { setError(message(err)) } }
+  return <><PageTitle title={t('registeredStudents')} description={t('searchStudents')} />
+    {error && <div className="mb-4"><Alert message={error} onClose={() => setError('')} /></div>}{notice && <div className="mb-4"><Alert tone="success" message={notice} onClose={() => setNotice('')} /></div>}
+    <Card className="mb-5"><form onSubmit={search} className="flex flex-col gap-3 sm:flex-row"><Input aria-label={t('searchStudents')} placeholder={t('searchStudents')} value={query} onChange={(e) => setQuery(e.target.value)} /><Button type="submit"><Search size={16} />{t('search')}</Button></form></Card>
+    <Card className="p-0">{busy ? <Spinner label={t('loading')} /> : students.length ? <><div className="overflow-x-auto"><table className="w-full min-w-[920px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-5 py-3">{t('student')}</th><th className="px-5 py-3">{t('studentId')}</th><th className="px-5 py-3">{t('phone')}</th><th className="px-5 py-3">{t('createdAt')}</th><th className="px-5 py-3">{t('status')}</th><th className="px-5 py-3">{t('actions')}</th></tr></thead><tbody className="divide-y divide-slate-100">{students.map((student) => <tr key={student._id}><td className="px-5 py-4"><div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-full bg-brand-50 text-brand-700"><UserRound size={18} /></span><span><span className="block font-semibold text-slate-800">{student.name}</span><span className="mt-1 flex items-center gap-1 text-xs text-slate-500"><Mail size={12} />{student.email}</span></span></div></td><td className="px-5 py-4 font-mono text-xs text-slate-600">{student.studentId}</td><td className="px-5 py-4 text-slate-500">{student.phone ? <span className="flex items-center gap-1"><Phone size={13} />{student.phone}</span> : '—'}</td><td className="px-5 py-4 text-slate-500">{date(student.createdAt)}</td><td className="px-5 py-4"><Badge tone={student.status === 'active' ? 'green' : 'red'}>{student.status === 'active' ? t('active') : t('inactive')}</Badge></td><td className="px-5 py-4"><div className="flex gap-2"><Button variant="secondary" className="px-3 py-2" onClick={() => void showDetails(student)}><Eye size={14} />{t('details')}</Button><Button variant={student.status === 'active' ? 'danger' : 'secondary'} className="px-3 py-2" onClick={() => void changeStatus(student)}>{student.status === 'active' ? <><Ban size={14} />{t('suspend')}</> : <><UserCheck size={14} />{t('activate')}</>}</Button></div></td></tr>)}</tbody></table></div><div className="flex items-center justify-between gap-3 px-5 py-4"><span className="text-sm text-slate-500">{t('showing')} {students.length} / {pagination.total}</span><div className="flex items-center gap-2"><Button variant="secondary" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}><ChevronLeft size={16} />{t('previous')}</Button><span className="text-sm">{t('page')} {page} / {pagination.pages}</span><Button variant="secondary" disabled={page >= pagination.pages} onClick={() => setPage((value) => value + 1)}>{t('next')}<ChevronRight size={16} /></Button></div></div></> : <div className="p-5"><EmptyState title={t('noRecords')} /></div>}</Card>
+    {(detail || detailBusy || detailError) && <Modal title={t('details')} wide onClose={() => { setDetail(null); setDetailError('') }}>{detailBusy ? <Spinner label={t('loading')} /> : detailError ? <Alert message={detailError} /> : detail && <div className="space-y-5"><div className="grid gap-3 rounded-xl bg-slate-50 p-4 text-sm sm:grid-cols-2"><p><strong>{t('fullName')}:</strong> {detail.student.name}</p><p><strong>{t('email')}:</strong> {detail.student.email}</p><p><strong>{t('studentId')}:</strong> {detail.student.studentId}</p><p><strong>{t('phone')}:</strong> {detail.student.phone || '—'}</p><p><strong>{t('status')}:</strong> {detail.student.status}</p><p><strong>{t('registrationDate')}:</strong> {date(detail.student.createdAt)}</p><p><strong>{t('updatedAt')}:</strong> {date(detail.student.updatedAt)}</p></div><h3 className="font-semibold">{t('issuedBooks')} · {t('recentActivity')}</h3>{detail.loans.length ? <div className="overflow-x-auto"><table className="w-full min-w-[620px] text-sm"><thead><tr className="bg-slate-50 text-left"><th className="p-3">{t('bookTitle')}</th><th className="p-3">{t('issueDate')}</th><th className="p-3">{t('dueDate')}</th><th className="p-3">{t('status')}</th><th className="p-3">{t('fine')}</th></tr></thead><tbody>{detail.loans.map((loan) => <tr key={loan._id} className="border-t"><td className="p-3">{loan.book?.title}</td><td className="p-3">{date(loan.issuedAt)}</td><td className="p-3">{date(loan.dueAt)}</td><td className="p-3">{loan.isOverdue ? t('overdue') : loan.status}</td><td className="p-3">{currency(loan.fine)}</td></tr>)}</tbody></table></div> : <p className="text-sm text-slate-500">{t('noRecords')}</p>}</div>}</Modal>}
+  </>
+}

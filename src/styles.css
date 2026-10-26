@@ -1,0 +1,18 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-brand-50: #f0fdf4;
+  --color-brand-100: #dcfce7;
+  --color-brand-600: #16a34a;
+  --color-brand-700: #15803D;
+  --color-brand-800: #166534;
+  --shadow-soft: 0 12px 40px rgba(15, 23, 42, .07);
+  --font-sans: 'DM Sans', 'Noto Sans Bengali', sans-serif;
+}
+:root { font-family: 'DM Sans', 'Noto Sans Bengali', sans-serif; color: #17251c; background: #f6f8f6; font-synthesis: none; text-rendering: optimizeLegibility; }
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; min-height: 100vh; }
+button, input, select, textarea { font: inherit; }
+button { cursor: pointer; }
+::selection { background: #bbf7d0; }
