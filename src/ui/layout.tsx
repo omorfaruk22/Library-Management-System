@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import {
-  ArrowRight, BookOpen, ChartNoAxesCombined, ChevronDown, CircleUserRound, ClipboardList, Globe2,
+  Activity, ArrowRight, BookOpen, ChartNoAxesCombined, ChevronDown, CircleUserRound, ClipboardList, Globe2,
   Heart, Landmark, LayoutDashboard, LibraryBig, LogOut, Menu, Percent, Receipt, Settings, ShoppingCart,
   Sparkles, Tags, Truck, Users, UsersRound, Wallet, Warehouse, X, BookMarked, CalendarClock,
 } from 'lucide-react'
@@ -32,6 +32,7 @@ const adminGroups: Array<{ id: string; label: string; icon: typeof BookOpen; lin
     id: 'circulation', label: 'circulationGroup', icon: BookMarked, links: [
       { to: '/admin/issued-books', label: 'issuedBooks', icon: Receipt, hint: 'Issue, return and overdue fines' },
       { to: '/admin/students', label: 'students', icon: Users, hint: 'Members, access and loan history' },
+      { to: '/admin/activity', label: 'activityLog', icon: Activity, hint: 'Staff actions and record changes' },
     ],
   },
   {

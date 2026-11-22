@@ -419,7 +419,20 @@ app.post('/api/admin/loans/:id/return', requireAuth, requireRole('admin'), async
 }))
 app.get('/api/admin/audit-logs', requireAuth, requireRole('admin'), asyncRoute(async (req, res) => {
   const { page, limit, skip } = pageOptions(req)
-  const [logs, total] = await Promise.all([AuditLog.find().populate('actor', 'name email').sort({ createdAt: -1 }).skip(skip).limit(limit).lean(), AuditLog.countDocuments()])
+  const search = typeof req.query.search === 'string' ? req.query.search.trim().slice(0, 80) : ''
+  const filter: Record<string, unknown> = {}
+  if (search) {
+    const pattern = new RegExp(escapeRegex(search), 'i')
+    const matchingActors = await User.find({ $or: [{ name: pattern }, { email: pattern }] }).select('_id').limit(50).lean()
+    filter.$or = [
+      { action: pattern }, { entity: pattern }, { entityId: pattern }, { ip: pattern },
+      ...(matchingActors.length ? [{ actor: { $in: matchingActors.map((actor) => actor._id) } }] : []),
+    ]
+  }
+  const [logs, total] = await Promise.all([
+    AuditLog.find(filter).populate('actor', 'name email').sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+    AuditLog.countDocuments(filter),
+  ])
   res.json({ logs, pagination: pager(page, limit, total) })
 }))
 

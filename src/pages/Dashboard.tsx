@@ -1,5 +1,5 @@
 import {
-  ArrowRight, BookCheck, BookOpen, CalendarClock, CalendarDays, CircleAlert, CircleDollarSign, ClipboardList,
+  Activity, ArrowRight, BookCheck, BookOpen, CalendarClock, CalendarDays, CircleAlert, CircleDollarSign, ClipboardList,
   Clock3, PackageSearch, Settings, Sparkles, Tags, TrendingDown, UserRound, Users, type LucideIcon,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -130,6 +130,7 @@ export default function Dashboard() {
     { to: '/admin/inventory', icon: PackageSearch, title: t('inventory'), description: 'Stock counts and movement history' },
     { to: '/admin/students', icon: Users, title: t('students'), description: 'Members, access and loan history' },
     { to: '/admin/reports', icon: ClipboardList, title: t('reports'), description: 'Circulation data and CSV export' },
+    { to: '/admin/activity', icon: Activity, title: t('activityLog'), description: t('activityLogDescription') },
     { to: '/admin/settings', icon: Settings, title: t('settings'), description: 'Loan period, fines and limits' },
   ] : [
     { to: '/books', icon: PackageSearch, title: t('browseBooks'), description: t('discover') },

@@ -16,6 +16,7 @@ import Students from './pages/Students'
 import { ChangePasswordPage, ProfilePage } from './pages/Profile'
 
 const AdminReports = lazy(() => import('./pages/AdminReports'))
+const ActivityLogPage = lazy(() => import('./pages/ActivityLogPage'))
 const BusinessAnalytics = lazy(() => import('./components/pages/BusinessAnalytics'))
 const WishlistPage = lazy(() => import('./components/pages/WishlistPage'))
 const ReservationsPage = lazy(() => import('./components/pages/ReservationsPage'))
@@ -91,6 +92,7 @@ export default function App() {
           <Route path="/admin/issued-books" element={<Guard role="admin"><AdminLoans /></Guard>} />
           <Route path="/admin/students" element={<Guard role="admin"><Students /></Guard>} />
           <Route path="/admin/reports" element={<Guard role="admin"><AdminReports /></Guard>} />
+          <Route path="/admin/activity" element={<Guard role="admin"><ActivityLogPage /></Guard>} />
           <Route path="/admin/analytics" element={<Guard role="admin"><BusinessAnalytics /></Guard>} />
           <Route path="/admin/sales" element={<Guard role="admin"><SalesPage /></Guard>} />
           <Route path="/admin/purchases" element={<Guard role="admin"><PurchasesPage /></Guard>} />

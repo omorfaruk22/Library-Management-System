@@ -784,8 +784,33 @@ export async function handleDemoApi(request: DemoRequest): Promise<DemoResult> {
     })
   }
 
-  /* audit logs (unused by the UI today, kept for route parity) ---------- */
-  if (route === '/admin/audit-logs') return isAdmin ? ok({ logs: [] }) : fail(401, 'Please sign in to continue.')
+  /* audit log ----------------------------------------------------------- */
+  if (route === '/admin/audit-logs') {
+    if (!isAdmin) return fail(401, 'Please sign in to continue.')
+    const auditLogs = loans.map((loan) => {
+      const student = students.find((item) => item._id === loan.issuedBy)
+      const actor = loan.issuedByRole === 'student' && student
+        ? { name: student.name, email: student.email }
+        : { name: ADMIN_PROFILE.name, email: ADMIN_PROFILE.email }
+      const view = loanView(loan)
+      return {
+        _id: 'audit_' + loan._id,
+        actor,
+        action: loan.status === 'returned' ? 'return' : 'issue',
+        entity: 'loan',
+        entityId: loan._id,
+        details: { book: view.book?.title ?? '', student: view.student?.name ?? '', studentId: view.student?.studentId ?? '' },
+        ip: '127.0.0.1',
+        createdAt: loan.returnedAt ?? loan.issuedAt,
+      }
+    }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    const search = (searchParams.get('search') ?? '').trim().toLowerCase()
+    const matchingLogs = search
+      ? auditLogs.filter((entry) => [entry.action, entry.entity, entry.entityId, entry.ip, entry.actor.name, entry.actor.email, ...Object.values(entry.details)].join(' ').toLowerCase().includes(search))
+      : auditLogs
+    const result = paged(matchingLogs, page, limit)
+    return ok({ logs: result.slice, pagination: result.pagination })
+  }
 
   return fail(404, 'Endpoint not found in the preview API.')
 }
