@@ -110,10 +110,20 @@
 
 ## Interface ও navigation
 
+- পুরো interface এখন একটি নিজস্ব design system-এ তৈরি: forest-green `brand` token, lime highlight, কাগজের মতো হালকা background। Typography-তে DM Sans (লেখা), Fraunces (শিরোনাম) ও Noto Bengali ব্যবহৃত।
+- সব page একই component kit ব্যবহার করে (`src/ui/primitives.tsx`): button, field, card, table, pagination, modal, empty state, skeleton ও stat card — তাই spacing, focus ring ও dark-green accent সব জায়গায় এক।
+- Default ভাষা **English**; হেডারের টগল দিয়ে বাংলায় যাওয়া যায় এবং পছন্দ মনে রাখা হয়।
 - Brand palette: deep green/black header, lime highlight এবং light content cards।
 - Admin navigation **Library**, **Circulation**, **Business**, **Reports**, **Settings** group-এ সাজানো; mobile-এ আলাদা expandable navigation।
 - Student/public menu-তে catalogue, dashboard এবং নিজের issued books থাকে।
 - English/Bangla locale switch আছে; নতুন Business page এবং dashboard business labels দুই ভাষাতেই দেখায়।
+
+## Demo/preview mode (database ছাড়া)
+
+- `demo-server/demoApi.ts` একটি in-memory API: বই, সদস্য, loan, reservation, wishlist, supplier, sale, purchase, expense ও stock movement sample data সহ।
+- `npm run dev:web` চালালে Vite নিজেই `/api/*` উত্তর দেয় (আসল Express দরকার হলে `VITE_DEMO_API=off` দিন)।
+- Vercel-এ `VERCEL_ENV=preview` এবং `MONGODB_URI` না থাকলে একই handler preview deployment-এ চলে; production সবসময় Atlas ব্যবহার করে।
+- Demo login-এ ৪ অক্ষরের বেশি যেকোনো password চলে। নমুনা: `admin@leafline.example` (admin) ও `nusrat.jahan@example.com` (student)।
 
 ## প্রযুক্তির গঠন
 
