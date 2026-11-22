@@ -18,6 +18,7 @@ const AdminReports = lazy(() => import('./pages/AdminReports'))
 const BusinessAnalytics = lazy(() => import('./components/pages/BusinessAnalytics'))
 const WishlistPage = lazy(() => import('./components/pages/WishlistPage'))
 const ReservationsPage = lazy(() => import('./components/pages/ReservationsPage'))
+const InventoryPage = lazy(() => import('./components/pages/InventoryPage'))
 const SalesPage = lazy(() => import('./pages/BusinessPages').then(m => ({ default: m.SalesPage })))
 const PurchasesPage = lazy(() => import('./pages/BusinessPages').then(m => ({ default: m.PurchasesPage })))
 const SuppliersPage = lazy(() => import('./pages/BusinessPages').then(m => ({ default: m.SuppliersPage })))
@@ -50,7 +51,7 @@ export default function App() {
     <Route path="/change-password" element={<Guard><ChangePasswordPage /></Guard>} />
     <Route path="/admin/categories" element={<Guard role="admin"><AdminEntity kind="categories" /></Guard>} />
     <Route path="/admin/authors" element={<Guard role="admin"><AdminEntity kind="authors" /></Guard>} />
-    <Route path="/admin/books" element={<Guard role="admin"><AdminBooks /></Guard>} />
+    <Route path="/admin/books" element={<Guard role="admin"><AdminBooks /></Guard>} />`n    <Route path="/admin/inventory" element={<Guard role="admin"><InventoryPage /></Guard>} />
     <Route path="/admin/issued-books" element={<Guard role="admin"><AdminLoans /></Guard>} />
     <Route path="/admin/students" element={<Guard role="admin"><Students /></Guard>} />
     <Route path="/admin/reports" element={<Guard role="admin"><AdminReports /></Guard>} />`n    <Route path="/admin/analytics" element={<Guard role="admin"><BusinessAnalytics /></Guard>} />
@@ -62,5 +63,6 @@ export default function App() {
     <Route path="*" element={<Missing />} />
   </Routes></Suspense></Layout>
 }
+
 
 

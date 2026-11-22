@@ -22,7 +22,7 @@ This checklist separates verified existing functionality from work added during 
 ## Remaining requested modules
 
 - [ ] **Advanced dashboard:** monthly/date filters are partly covered by analytics; total copies/members/loans/fines exist in current dashboard. Add monthly revenue/expense cards and activity feed integration.
-- [ ] **Copy-level inventory:** accession IDs, copy condition/status, QR/barcode, scan, stock adjustments/transfers/audits, damaged/lost workflow and movement ledger.
+- [~] **Inventory:** admin stock adjustment page/API, low-stock view and transactional restock/damaged/lost/stocktake movement history added. Copy-level accession IDs, QR/barcode scanning, condition fields, transfers and stock audit remain.
 - [ ] **Circulation extensions:** wait queue/reservations, renewals, expiry/availability notifications, lost/damaged charges and return receipt.
 - [~] **Member portal:** private DB-backed wishlist and reservation queue pages/API added; student ownership checks in place. Automatic queue promotion, expiry, fine/payment history, digital membership card and notification preferences remain.
 - [ ] **Storefront:** cart, customer records, online order lifecycle, promotions/coupons and reviews/ratings.
@@ -39,4 +39,5 @@ This checklist separates verified existing functionality from work added during 
 ## External services and decisions
 
 No credentials or payment provider has been invented. Private eBook storage, email delivery, scheduled jobs, PDF generation and payment processing need providers/configuration before production activation. VAT/tax rules and refund accounting need the library's actual policy. Those should be configuration-backed rather than hard-coded.
+
 

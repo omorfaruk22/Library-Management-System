@@ -76,6 +76,18 @@ const reservationSchema = new Schema({ user: { type: Schema.Types.ObjectId, ref:
 reservationSchema.index({ user: 1, book: 1 }, { unique: true, partialFilterExpression: { status: 'waiting' } })
 reservationSchema.index({ user: 1, book: 1, status: 1 })
 reservationSchema.index({ book: 1, status: 1, createdAt: 1 })
+const stockMovementSchema = new Schema({
+  book: { type: Schema.Types.ObjectId, ref: 'Book', required: true, index: true },
+  kind: { type: String, enum: ['restock', 'damaged', 'lost', 'stocktake'], required: true },
+  quantity: { type: Number, required: true, min: 1 },
+  totalBefore: { type: Number, required: true, min: 0 },
+  totalAfter: { type: Number, required: true, min: 0 },
+  availableBefore: { type: Number, required: true, min: 0 },
+  availableAfter: { type: Number, required: true, min: 0 },
+  reason: { type: String, trim: true, maxlength: 500, default: '' },
+  actor: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+}, { timestamps: true })
+stockMovementSchema.index({ createdAt: -1 })
 const businessLineSchema = new Schema({
   book: { type: Schema.Types.ObjectId, ref: 'Book', required: true },
   title: { type: String, required: true, trim: true },
@@ -173,6 +185,7 @@ export const User = getModel('User', userSchema)
 export const Category = getModel('Category', categorySchema)
 export const Author = getModel('Author', authorSchema)
 export const Book = getModel('Book', bookSchema)
+export const StockMovement = getModel('StockMovement', stockMovementSchema)
 export const Loan = getModel('Loan', loanSchema)
 export const Wishlist = getModel('Wishlist', wishlistSchema)
 export const Reservation = getModel('Reservation', reservationSchema)
@@ -185,5 +198,6 @@ export const EmailVerification = getModel('EmailVerification', emailVerification
 export const AuditLog = getModel('AuditLog', auditLogSchema)
 export const RateLimitCounter = getModel('RateLimitCounter', rateLimitCounterSchema)
 export const SystemSettings = getModel('SystemSettings', settingsSchema)
+
 
 
