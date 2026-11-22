@@ -453,11 +453,43 @@ export async function handleDemoApi(request: DemoRequest): Promise<DemoResult> {
     const result = paged(list, page, limit)
     return ok({ [route.endsWith('categories') ? 'categories' : 'authors']: result.slice, pagination: result.pagination })
   }
-  if (route.startsWith('/admin/authors/') && route.endsWith('/books')) {
+  if (route.startsWith('/admin/authors/')) {
     const authorId = route.split('/')[3]
-    const list = books.filter((book) => book.author === authorId)
-    const result = paged(list, page, limit)
-    return ok({ books: result.slice, pagination: result.pagination })
+    const author = authors.find((entry) => entry._id === authorId)
+    if (!author) return fail(404, 'Author not found.')
+    if (route.endsWith('/books')) {
+      const list = books.filter((book) => book.author === authorId)
+      const result = paged(list, page, limit)
+      return ok({ books: result.slice, pagination: result.pagination })
+    }
+    if (request.method === 'DELETE') {
+      if (books.some((book) => book.author === authorId)) return fail(409, 'This author has books and cannot be deleted.')
+      authors.splice(authors.indexOf(author), 1)
+      return ok({ ok: true })
+    }
+  }
+  if (route.startsWith('/admin/categories/') || route.startsWith('/admin/authors/')) {
+    if (!isAdmin) return fail(401, 'Please sign in to continue.')
+    const singular = route.startsWith('/admin/categories/')
+    const source = singular ? categories : authors
+    const item = source.find((entry) => entry._id === route.split('/')[3])
+    if (!item) return fail(404, 'Record not found.')
+    if (request.method === 'PUT') {
+      Object.assign(item, {
+        name: String(request.body.name ?? item.name),
+        description: request.body.description === undefined ? item.description : request.body.description,
+        biography: request.body.biography === undefined ? item.biography : request.body.biography,
+        status: request.body.status === 'inactive' ? 'inactive' : 'active',
+        updatedAt: new Date().toISOString(),
+      })
+      return ok({ [singular ? 'category' : 'author']: item })
+    }
+    if (request.method === 'DELETE') {
+      const used = singular ? books.some((book) => book.category === item._id) : books.some((book) => book.author === item._id)
+      if (used) return fail(409, `This ${singular ? 'category' : 'author'} has books and cannot be deleted.`)
+      source.splice(source.indexOf(item), 1)
+      return ok({ ok: true })
+    }
   }
   if (route === '/admin/books') {
     if (!isAdmin) return fail(401, 'Please sign in to continue.')
