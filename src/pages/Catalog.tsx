@@ -1,80 +1,244 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Search, SlidersHorizontal, BookOpen, ArrowUpRight, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ArrowUpRight, BookOpen, Bookmark, ChevronRight, LayoutGrid, List, Search, SlidersHorizontal, X } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Alert, Button, Card, EmptyState, Select, Spinner } from '../components'
+import { Alert, Badge, Button, Card, CoverCard, EmptyState, Input, Pagination, Select, Skeleton } from '../ui/primitives'
 import { api, currency, message } from '../lib/api'
 import { useLocale } from '../i18n'
 import { useAuth } from '../auth'
 
 type Item = { _id: string; name: string }
-type Book = { _id: string; title: string; isbn: string; description?: string; coverImage?: string; price?: number; availableCopies: number; totalCopies: number; author?: { name: string }; category?: { name: string } }
-type Pagination = { page: number; pages: number; total: number }
+type Book = {
+  _id: string; title: string; isbn: string; description?: string; coverImage?: string; price?: number
+  availableCopies: number; totalCopies: number; publisher?: string; publicationYear?: number
+  author?: { name: string }; category?: { name: string }
+}
+type PaginationData = { page: number; pages: number; total: number }
+
+const PAGE_SIZE = 12
+
+function availabilityTone(book: Book) {
+  if (book.availableCopies <= 0) return { tone: 'red' as const, label: 'Out of stock' }
+  if (book.availableCopies <= 2) return { tone: 'amber' as const, label: 'Few left' }
+  return { tone: 'green' as const, label: 'On the shelf' }
+}
+
 export default function Catalog() {
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
   const { user } = useAuth()
   const queryClient = useQueryClient()
-  const [notice, setNotice] = useState('')
   const [params, setParams] = useSearchParams()
   const initialQuery = useRef(params.get('q') ?? '')
+
   const [books, setBooks] = useState<Book[]>([])
   const [categories, setCategories] = useState<Item[]>([])
   const [authors, setAuthors] = useState<Item[]>([])
   const [q, setQ] = useState(params.get('q') ?? '')
-  const [category, setCategory] = useState('')
-  const [author, setAuthor] = useState('')
-  const [available, setAvailable] = useState(false)
-  const [pagination, setPagination] = useState<Pagination>({ page: 1, pages: 1, total: 0 })
+  const [category, setCategory] = useState(params.get('category') ?? '')
+  const [author, setAuthor] = useState(params.get('author') ?? '')
+  const [available, setAvailable] = useState(params.get('available') === 'true')
+  const [sort, setSort] = useState(params.get('sort') ?? 'title')
+  const [view, setView] = useState<'grid' | 'list'>('grid')
+  const [pagination, setPagination] = useState<PaginationData>({ page: 1, pages: 1, total: 0 })
   const [busy, setBusy] = useState(true)
   const [error, setError] = useState('')
-  const search = useCallback(async (event?: FormEvent, targetPage = 1) => {
+  const [notice, setNotice] = useState('')
+
+  const search = useCallback(async (event?: FormEvent, targetPage = 1, overrides?: { category?: string; author?: string; available?: boolean; sort?: string; q?: string }) => {
     event?.preventDefault()
     setBusy(true)
     setError('')
     const next = new URLSearchParams()
-    if (q.trim()) next.set('q', q.trim())
-    if (category) next.set('category', category)
-    if (author) next.set('author', author)
-    if (available) next.set('available', 'true')
-    next.set('page', String(targetPage))
-    next.set('limit', '12')
-    setParams(next)
+    const nextQ = (overrides?.q ?? q).trim()
+    const nextCategory = overrides?.category ?? category
+    const nextAuthor = overrides?.author ?? author
+    const nextAvailable = overrides?.available ?? available
+    const nextSort = overrides?.sort ?? sort
+    if (nextQ) next.set('q', nextQ)
+    if (nextCategory) next.set('category', nextCategory)
+    if (nextAuthor) next.set('author', nextAuthor)
+    if (nextAvailable) next.set('available', 'true')
+    if (nextSort && nextSort !== 'title') next.set('sort', nextSort)
+    if (targetPage > 1) next.set('page', String(targetPage))
+    next.set('limit', String(PAGE_SIZE))
+    setParams(next, { replace: true })
     try {
-      const result = await api<{ books: Book[]; pagination: Pagination }>('/books?' + next.toString())
+      const result = await api<{ books: Book[]; pagination: PaginationData }>('/books?' + next.toString())
       setBooks(result.books)
       setPagination(result.pagination)
     } catch (err) { setError(message(err)) } finally { setBusy(false) }
-  }, [q, category, author, available, setParams])
+  }, [q, category, author, available, sort, setParams])
+
   const borrowMutation = useMutation({
     mutationFn: (bookId: string) => api('/me/loans', { method: 'POST', body: JSON.stringify({ bookId }) }),
     onSuccess: async () => {
       setNotice(t('borrowSuccess'))
       await Promise.all([queryClient.invalidateQueries({ queryKey: ['dashboard'] }), queryClient.invalidateQueries({ queryKey: ['my-loans'] })])
-      await search()
+      await search(undefined, pagination.page)
     },
   })
+
   useEffect(() => {
     let alive = true
-    const initialParams = new URLSearchParams({ page: '1', limit: '12' })
-    if (initialQuery.current.trim()) initialParams.set('q', initialQuery.current.trim())
+    const initial = new URLSearchParams({ page: '1', limit: String(PAGE_SIZE) })
+    if (initialQuery.current.trim()) initial.set('q', initialQuery.current.trim())
+    if (params.get('category')) initial.set('category', params.get('category')!)
+    if (params.get('author')) initial.set('author', params.get('author')!)
+    if (params.get('available')) initial.set('available', params.get('available')!)
+    if (params.get('sort')) initial.set('sort', params.get('sort')!)
     Promise.all([
       api<{ categories: Item[] }>('/categories'),
       api<{ authors: Item[] }>('/authors'),
-      api<{ books: Book[]; pagination: Pagination }>('/books?' + initialParams.toString()),
+      api<{ books: Book[]; pagination: PaginationData }>('/books?' + initial.toString()),
     ]).then(([c, a, result]) => {
-      if (alive) { setCategories(c.categories); setAuthors(a.authors); setBooks(result.books); setPagination(result.pagination); setBusy(false) }
-    }).catch((err) => { if (alive) { setError(message(err)); setBusy(false) } })
+      if (!alive) return
+      setCategories(c.categories); setAuthors(a.authors); setBooks(result.books); setPagination(result.pagination)
+    }).catch((err) => { if (alive) setError(message(err)) }).finally(() => { if (alive) setBusy(false) })
     return () => { alive = false }
+    // Only the first render performs the bootstrap fetch; later searches are explicit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-  return <>
-    <section className="relative mb-9 overflow-hidden rounded-3xl bg-brand-800 px-6 py-10 text-white sm:px-10 sm:py-14"><div className="absolute -right-10 -top-20 h-72 w-72 rounded-full border-[42px] border-white/10" /><div className="relative max-w-2xl"><span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold"><BookOpen size={14} />{t('brand')}</span><h1 className="mt-5 text-3xl font-bold leading-tight sm:text-5xl">{t('libraryHero')}</h1><p className="mt-4 max-w-xl text-sm leading-7 text-emerald-100 sm:text-base">{t('heroText')}</p></div></section>
-    <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><h2 className="text-2xl font-bold text-slate-900">{t('catalog')}</h2><p className="mt-1 text-sm text-slate-500">{t('discover')}</p></div></div>
-    <Card className="mb-7"><form className="grid gap-3 md:grid-cols-[1.5fr_1fr_1fr_auto_auto]" onSubmit={(e) => void search(e)}><label className="relative"><span className="sr-only">{t('searchBooks')}</span><Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} /><input value={q} onChange={(e) => setQ(e.target.value)} className="w-full rounded-xl border border-slate-200 py-3 pl-10 pr-3 text-sm outline-none focus:border-brand-600 focus:ring-4 focus:ring-brand-100" placeholder={t('searchBooks')} /></label><Select aria-label={t('category')} value={category} onChange={(e) => setCategory(e.target.value)}><option value="">{t('allCategories')}</option>{categories.map((x) => <option key={x._id} value={x._id}>{x.name}</option>)}</Select><Select aria-label={t('author')} value={author} onChange={(e) => setAuthor(e.target.value)}><option value="">{t('allAuthors')}</option>{authors.map((x) => <option key={x._id} value={x._id}>{x.name}</option>)}</Select><label className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm text-slate-600"><input type="checkbox" checked={available} onChange={(e) => setAvailable(e.target.checked)} className="accent-brand-700" /><span className="whitespace-nowrap">{t('availableOnly')}</span></label><button className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-700 px-4 py-3 text-sm font-semibold text-white"><SlidersHorizontal size={16} />{t('search')}</button></form></Card>
-    {error && <div className="mb-4"><Alert message={error} /></div>}{borrowMutation.error && <div className="mb-4"><Alert message={message(borrowMutation.error)} /></div>}{notice && <div className="mb-4"><Alert tone="success" message={notice} onClose={() => setNotice('')} /></div>}
-    {busy ? <Spinner label={t('loading')} /> : books.length ? <>
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{books.map((book) => <Card key={book._id} className="group overflow-hidden p-0 transition hover:-translate-y-1 hover:shadow-xl"><div className="relative h-52 overflow-hidden bg-gradient-to-br from-brand-50 to-emerald-100">{book.coverImage ? <img src={book.coverImage} alt={book.title + ' cover'} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" onError={(e) => { e.currentTarget.style.display = 'none' }} /> : <div className="grid h-full place-items-center text-brand-700/60"><BookOpen size={54} strokeWidth={1.2} /></div>}<span className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-brand-800">{book.category?.name ?? t('category')}</span></div><div className="p-5"><Link to={'/books/' + book._id} className="mb-2 block line-clamp-2 min-h-12 text-lg font-bold text-slate-900 hover:text-brand-700">{book.title}</Link><p className="text-sm text-slate-600">{book.author?.name ?? '—'}</p><p className="mt-2 line-clamp-2 min-h-10 text-xs leading-5 text-slate-500">{book.description || book.isbn}</p><div className="mt-3 text-lg font-bold text-brand-800">{currency(book.price ?? 0)}</div><div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-4"><span className={'text-xs font-semibold ' + (book.availableCopies ? 'text-brand-700' : 'text-rose-600')}>{book.availableCopies} / {book.totalCopies} {t('copiesAvailable')}</span>{user?.role === 'student' ? <Button variant="secondary" className="px-3 py-2 text-xs" disabled={!book.availableCopies || borrowMutation.isPending} onClick={() => { setNotice(''); borrowMutation.mutate(book._id) }}>{borrowMutation.isPending ? t('saving') : book.availableCopies ? t('borrowBook') : t('unavailable')}</Button> : user?.role === 'admin' ? <Link to="/admin/issued-books" className="inline-flex items-center gap-1 text-xs font-semibold text-brand-700">{t('issueBook')}<ArrowUpRight size={14} /></Link> : <Link to="/login" className="inline-flex items-center gap-1 text-xs font-semibold text-brand-700">{t('signIn')}<ArrowUpRight size={14} /></Link>}</div></div></Card>)}</div>
-      <div className="mt-7 flex items-center justify-between rounded-2xl border border-slate-100 bg-white px-4 py-3 text-sm"><span className="text-slate-500">{t('showing')} {books.length} / {pagination.total}</span><div className="flex items-center gap-2"><button disabled={pagination.page <= 1 || busy} onClick={() => void search(undefined, pagination.page - 1)} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-2 font-medium text-slate-600 disabled:opacity-40"><ChevronLeft size={15} />{t('previous')}</button><span className="min-w-16 text-center text-xs text-slate-500">{t('page')} {pagination.page} / {pagination.pages}</span><button disabled={pagination.page >= pagination.pages || busy} onClick={() => void search(undefined, pagination.page + 1)} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-2 font-medium text-slate-600 disabled:opacity-40">{t('next')}<ChevronRight size={15} /></button></div></div>
-    </> : <EmptyState title={t('noBooks')} description={t('noBooksHint')} />}
-  </>
-}
 
+  const resetFilters = () => {
+    setQ(''); setCategory(''); setAuthor(''); setAvailable(false); setSort('title')
+    void search(undefined, 1, { q: '', category: '', author: '', available: false, sort: 'title' })
+  }
+  const activeFilters = [q.trim() && 'search', category && 'category', author && 'author', available && 'available'].filter(Boolean).length
+  const canBorrow = user?.role === 'student'
+
+  return (
+    <div className="space-y-6">
+      <header className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-brand-700">{t('brand')}</p>
+          <h1 className="mt-1.5 text-[28px] font-semibold leading-tight text-slate-900 sm:text-[34px]">{t('catalog')}</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">{t('discover')} — {pagination.total.toLocaleString()} {t('booksListed').toLowerCase()}, all on the shelf.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1">
+            {(['grid', 'list'] as const).map((mode) => (
+              <button key={mode} onClick={() => setView(mode)} aria-pressed={view === mode} aria-label={mode === 'grid' ? 'Grid view' : 'List view'}
+                className={'grid h-8 w-8 place-items-center rounded-lg transition ' + (view === mode ? 'bg-brand-700 text-white' : 'text-slate-500 hover:bg-slate-100')}>
+                {mode === 'grid' ? <LayoutGrid size={15} /> : <List size={15} />}
+              </button>
+            ))}
+          </div>
+        </div>
+      </header>
+
+      <Card className="p-4 sm:p-5">
+        <form className="grid gap-3 lg:grid-cols-[minmax(220px,1.6fr)_1fr_1fr_auto]" onSubmit={(event) => void search(event)}>
+          <Input aria-label={t('searchBooks')} placeholder={t('searchBooks')} value={q} onChange={(event) => setQ(event.target.value)} icon={<Search size={16} />} />
+          <Select aria-label={t('category')} value={category} onChange={(event) => { setCategory(event.target.value); void search(undefined, 1, { category: event.target.value }) }}>
+            <option value="">{t('allCategories')}</option>
+            {categories.map((item) => <option key={item._id} value={item._id}>{item.name}</option>)}
+          </Select>
+          <Select aria-label={t('author')} value={author} onChange={(event) => { setAuthor(event.target.value); void search(undefined, 1, { author: event.target.value }) }}>
+            <option value="">{t('allAuthors')}</option>
+            {authors.map((item) => <option key={item._id} value={item._id}>{item.name}</option>)}
+          </Select>
+          <div className="flex gap-2">
+            <Select aria-label={t('sortBy')} value={sort} onChange={(event) => { setSort(event.target.value); void search(undefined, 1, { sort: event.target.value }) }} className="min-w-36">
+              <option value="title">A → Z</option>
+              <option value="title-desc">Z → A</option>
+              <option value="newest">{t('newestFirst')}</option>
+            </Select>
+            <Button type="submit" className="shrink-0"><SlidersHorizontal size={15} />{t('search')}</Button>
+          </div>
+        </form>
+        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+          <button
+            type="button" onClick={() => { const next = !available; setAvailable(next); void search(undefined, 1, { available: next }) }}
+            className={'inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[12px] font-semibold transition ' + (available ? 'border-brand-600 bg-brand-50 text-brand-800' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300')}
+            aria-pressed={available}
+          ><BookOpen size={13} />{t('availableOnly')}</button>
+          {activeFilters > 0 && <button type="button" onClick={resetFilters} className="inline-flex h-8 items-center gap-1 rounded-full px-2.5 text-[12px] font-semibold text-slate-500 hover:bg-slate-100"><X size={13} />Clear filters</button>}
+          <span className="ml-auto text-[12px] text-slate-500">{pagination.total.toLocaleString()} {t('booksListed').toLowerCase()}</span>
+        </div>
+      </Card>
+
+      {error && <Alert message={error} onClose={() => setError('')} />}
+      {borrowMutation.error && <Alert message={message(borrowMutation.error)} />}
+      {notice && <Alert tone="success" message={notice} onClose={() => setNotice('')} />}
+
+      {busy ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, index) => <Skeleton key={index} className="h-[330px] w-full" />)}
+        </div>
+      ) : books.length ? (
+        <>
+          {view === 'grid' ? (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {books.map((book) => {
+                const state = availabilityTone(book)
+                return (
+                  <article key={book._id} className="surface card-hover group flex flex-col overflow-hidden p-0">
+                    <div className="relative h-48 overflow-hidden">
+                      <Link to={'/books/' + book._id} aria-label={book.title}>
+                        <CoverCard title={book.title} src={book.coverImage} className="h-48 w-full" />
+                      </Link>
+                      <span className="absolute left-2.5 top-2.5 max-w-[70%] truncate rounded-full bg-white/85 px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wide text-brand-800 backdrop-blur">{book.category?.name ?? t('category')}</span>
+                      <span className="absolute right-2.5 top-2.5"><Badge tone={state.tone} dot>{book.availableCopies > 0 ? `${book.availableCopies} ${t('available').toLowerCase()}` : t('unavailable')}</Badge></span>
+                    </div>
+                    <div className="flex flex-1 flex-col p-4">
+                      <Link to={'/books/' + book._id} className="line-clamp-2 text-[14.5px] font-semibold leading-5 text-slate-900 transition hover:text-brand-800">{book.title}</Link>
+                      <p className="mt-1 truncate text-[12px] text-slate-500">{book.author?.name ?? '—'}</p>
+                      <p className="mt-2 line-clamp-2 min-h-[2.4rem] text-[12px] leading-[1.5rem] text-slate-500">{book.description || book.isbn}</p>
+                      <div className="mt-auto flex items-center justify-between gap-2 border-t border-slate-100 pt-3">
+                        <div>
+                          <p className="font-display text-[15px] font-semibold text-brand-800">{currency(book.price ?? 0)}</p>
+                          <p className="text-[10.5px] text-slate-400">{book.availableCopies}/{book.totalCopies} {locale === 'bn' ? 'কপি' : 'copies'}</p>
+                        </div>
+                        {canBorrow ? (
+                          <Button size="sm" variant={book.availableCopies ? 'subtle' : 'secondary'} disabled={!book.availableCopies || borrowMutation.isPending}
+                            onClick={() => { setNotice(''); borrowMutation.mutate(book._id) }}>
+                            {borrowMutation.isPending ? t('saving') : book.availableCopies ? t('borrowBook') : t('unavailable')}
+                          </Button>
+                        ) : (
+                          <Link to={'/books/' + book._id} className="inline-flex items-center gap-1 text-[12px] font-semibold text-brand-700">{t('details')}<ArrowUpRight size={13} /></Link>
+                        )}
+                      </div>
+                    </div>
+                  </article>
+                )
+              })}
+            </div>
+          ) : (
+            <Card className="divide-y divide-slate-100 p-0">
+              {books.map((book) => {
+                const state = availabilityTone(book)
+                return (
+                  <div key={book._id} className="flex items-center gap-4 p-4 transition hover:bg-brand-50/30">
+                    <CoverCard title={book.title} src={book.coverImage} size="sm" className="h-20 w-14 shrink-0 rounded-lg" />
+                    <div className="min-w-0 flex-1">
+                      <Link to={'/books/' + book._id} className="block truncate text-[14px] font-semibold text-slate-900 hover:text-brand-800">{book.title}</Link>
+                      <p className="mt-0.5 truncate text-[12px] text-slate-500">{book.author?.name ?? '—'} · {book.category?.name ?? t('category')}</p>
+                      <p className="mt-1 font-mono text-[11px] text-slate-400">{book.isbn}</p>
+                    </div>
+                    <div className="hidden text-right sm:block">
+                      <p className="font-display text-[15px] font-semibold text-brand-800">{currency(book.price ?? 0)}</p>
+                      <p className="text-[11px] text-slate-500">{book.availableCopies} / {book.totalCopies}</p>
+                    </div>
+                    <Badge tone={state.tone} dot>{state.label}</Badge>
+                    {canBorrow && <Button size="sm" variant="secondary" disabled={!book.availableCopies || borrowMutation.isPending} onClick={() => { setNotice(''); borrowMutation.mutate(book._id) }}>{t('borrowBook')}</Button>}
+                    <Link to={'/books/' + book._id} className="grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-white hover:text-brand-700" aria-label={t('details')}><ChevronRight size={16} /></Link>
+                  </div>
+                )
+              })}
+            </Card>
+          )}
+          <Card className="p-0">
+            <Pagination page={pagination.page} pages={pagination.pages} total={pagination.total} shown={books.length} busy={busy} onChange={(page) => void search(undefined, page)} />
+          </Card>
+        </>
+      ) : (
+        <Card>
+          <EmptyState
+            icon={Bookmark} title={t('noBooks')} description={t('noBooksHint')}
+            action={<Button variant="secondary" onClick={resetFilters}>Clear filters</Button>}
+          />
+        </Card>
+      )}
+    </div>
+  )
+}

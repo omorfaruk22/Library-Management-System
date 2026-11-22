@@ -1,17 +1,429 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { Badge, Button, Card, Input, PageTitle, Select } from '../components'
+import { CircleDollarSign, Landmark, Plus, Receipt, ShoppingCart, Trash2, TrendingDown, Truck, Wallet } from 'lucide-react'
+import { Alert, Badge, Button, Card, EmptyState, IconButton, Input, PageTitle, Select, SkeletonRows, StatCard, Textarea } from '../ui/primitives'
 import { api, currency, date, message } from '../lib/api'
 import { useLocale } from '../i18n'
-type Book={_id:string;title:string;isbn:string;price:number;availableCopies:number}; type Supplier={_id:string;name:string;phone?:string;email?:string;address?:string;status:string}; type Line={book:string;quantity:number;unitPrice:number}; type Finance={_id:string;invoiceNo:string;customerName?:string;supplier?:Supplier|string;total:number;paidAmount:number;balanceDue:number;paymentStatus:string;createdAt:string;items:{title:string;quantity:number;unitPrice:number;lineTotal:number}[]}; type Expense={_id:string;description:string;category:string;amount:number;paymentMethod:string;incurredAt:string}
-const blank=():Line=>({book:'',quantity:1,unitPrice:0})
-function useBooks(){const [books,setBooks]=useState<Book[]>([]);useEffect(()=>{void api<{books:Book[]}>('/admin/books?limit=100').then(r=>setBooks(r.books)).catch(()=>{})},[]);return books}
-function Table({children}:{children:React.ReactNode}){return <div className="overflow-x-auto"><table className="w-full min-w-[700px] text-left text-sm">{children}</table></div>}
-function Fields({lines,setLines,books,purchase=false}:{lines:Line[];setLines:(v:Line[])=>void;books:Book[];purchase?:boolean}){const bn=useLocale().locale==='bn';return <div className="space-y-2">{lines.map((line,i)=><div key={i} className="grid gap-2 rounded-xl bg-slate-50 p-3 sm:grid-cols-[1fr_100px_140px_auto] sm:items-end"><Select label={bn?'বই':'Book'} value={line.book} onChange={e=>{const b=books.find(x=>x._id===e.target.value);setLines(lines.map((x,j)=>j===i?{...x,book:e.target.value,unitPrice:purchase?x.unitPrice:(b?.price??0)}:x))}}><option value="">{bn?'বই নির্বাচন':'Select book'}</option>{books.map(b=><option key={b._id} value={b._id}>{b.title} · stock {b.availableCopies}</option>)}</Select><Input label={bn?'পরিমাণ':'Qty'} type="number" min="1" value={line.quantity} onChange={e=>setLines(lines.map((x,j)=>j===i?{...x,quantity:Number(e.target.value)}:x))}/><Input label={purchase?(bn?'একক ক্রয়মূল্য':'Unit cost'):(bn?'একক দাম':'Unit price')} type="number" min="0" value={line.unitPrice} onChange={e=>setLines(lines.map((x,j)=>j===i?{...x,unitPrice:Number(e.target.value)}:x))}/><Button type="button" variant="ghost" onClick={()=>setLines(lines.filter((_,j)=>j!==i))}>×</Button></div>)}<Button type="button" variant="secondary" onClick={()=>setLines([...lines,blank()])}>+ {bn?'বই যোগ':'Add book'}</Button></div>}
-function Method({value,onChange}:{value:string;onChange:(x:string)=>void}){const bn=useLocale().locale==='bn';return <Select label={bn?'পেমেন্ট মাধ্যম':'Payment method'} value={value} onChange={e=>onChange(e.target.value)}><option value="cash">{bn?'নগদ':'Cash'}</option><option value="mobile">Mobile banking</option><option value="card">Card</option><option value="bank">Bank</option></Select>}
-function Records({rows,kind,reload}:{rows:Finance[];kind:'sales'|'purchases';reload:()=>void}){const bn=useLocale().locale==='bn';return <Card className="p-0"><Table><thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr>{(bn?['ইনভয়েস','তারিখ','আইটেম','মোট','পরিশোধ','বকেয়া','অবস্থা','কাজ']:['Invoice','Date','Items','Total','Paid','Due','Status','Action']).map(x=><th className="px-4 py-3" key={x}>{x}</th>)}</tr></thead><tbody className="divide-y">{rows.map(row=><tr key={row._id}><td className="px-4 py-3 font-semibold">{row.invoiceNo}<div className="text-xs font-normal text-slate-500">{kind==='sales'?row.customerName:typeof row.supplier==='object'?row.supplier.name:'Supplier'}</div></td><td className="px-4 py-3">{date(row.createdAt)}</td><td className="px-4 py-3">{row.items.map(i=>`${i.title} × ${i.quantity}`).join(', ')}</td><td className="px-4 py-3">{currency(row.total)}</td><td className="px-4 py-3">{currency(row.paidAmount)}</td><td className="px-4 py-3 font-semibold">{currency(row.balanceDue)}</td><td className="px-4 py-3"><Badge tone={row.paymentStatus==='paid'?'green':row.paymentStatus==='partial'?'amber':'red'}>{row.paymentStatus}</Badge></td><td className="px-4 py-3">{row.balanceDue>0&&<Collect id={row._id} kind={kind} reload={reload}/>}</td></tr>)}</tbody></Table>{!rows.length&&<p className="p-8 text-center text-sm text-slate-500">{bn?'এখনো কোনো লেনদেন নেই':'No transactions yet'}</p>}</Card>}
-function Collect({id,kind,reload}:{id:string;kind:'sales'|'purchases';reload:()=>void}){const bn=useLocale().locale==='bn';const [amount,setAmount]=useState('');return <form className="flex min-w-[180px] gap-1" onSubmit={async e=>{e.preventDefault();try{await api(`/admin/business/${kind}/${id}/payments`,{method:'POST',body:JSON.stringify({amount:Number(amount),paymentMethod:'cash'})});setAmount('');reload()}catch(err){window.alert(message(err))}}}><input className="w-20 rounded-lg border px-2 py-1.5" type="number" min="1" placeholder={bn?'পরিমাণ':'Amount'} value={amount} onChange={e=>setAmount(e.target.value)} required/><Button className="px-2 py-1.5">{bn?'আদায়':'Collect'}</Button></form>}
-export function SalesPage(){const bn=useLocale().locale==='bn';const books=useBooks();const [rows,setRows]=useState<Finance[]>([]);const [lines,setLines]=useState<Line[]>([blank()]);const [name,setName]=useState('');const [phone,setPhone]=useState('');const [discount,setDiscount]=useState('0');const [paid,setPaid]=useState('');const [method,setMethod]=useState('cash');const [error,setError]=useState('');const [busy,setBusy]=useState(false);const load=()=>api<{sales:Finance[]}>('/admin/business/sales').then(x=>setRows(x.sales)).catch(e=>setError(message(e)));useEffect(()=>{void load()},[]);const subtotal=lines.reduce((s,l)=>s+l.quantity*l.unitPrice,0);async function submit(e:FormEvent){e.preventDefault();setBusy(true);setError('');try{await api('/admin/business/sales',{method:'POST',body:JSON.stringify({items:lines,discount:Number(discount),paidAmount:paid===''?subtotal-Number(discount):Number(paid),paymentMethod:method,customerName:name||'Walk-in customer',customerPhone:phone})});setLines([blank()]);setName('');setPhone('');setDiscount('0');setPaid('');await load()}catch(err){setError(message(err))}finally{setBusy(false)}}return <><PageTitle title={bn?'বই বিক্রি / POS':'Book sales / POS'} description={bn?'বিক্রি, ইনভয়েস ও বকেয়া আদায়':'Sell books, issue invoices and collect balances.'} action={<Link className="font-semibold text-brand-700" to="/admin/reports">{bn?'বিজনেস রিপোর্ট →':'Business reports →'}</Link>}/>{error&&<p className="mb-4 rounded-xl bg-rose-50 p-3 text-rose-700">{error}</p>}<form onSubmit={submit} className="mb-7"><Card><div className="mb-5 grid gap-3 sm:grid-cols-2"><Input label={bn?'ক্রেতার নাম':'Customer name'} value={name} onChange={e=>setName(e.target.value)}/><Input label={bn?'ফোন':'Phone'} value={phone} onChange={e=>setPhone(e.target.value)}/></div><Fields lines={lines} setLines={setLines} books={books}/><div className="mt-5 grid gap-3 sm:grid-cols-4"><Input label={bn?'ডিসকাউন্ট':'Discount'} type="number" min="0" value={discount} onChange={e=>setDiscount(e.target.value)}/><Input label={bn?'এখন পরিশোধ':'Paid now'} type="number" min="0" value={paid} placeholder={String(subtotal-Number(discount))} onChange={e=>setPaid(e.target.value)}/><Method value={method} onChange={setMethod}/><div className="flex items-end justify-between gap-2"><strong className="text-xl">{currency(subtotal-Number(discount))}</strong><Button disabled={busy||lines.some(x=>!x.book)}>{bn?'বিক্রি রেকর্ড':'Record sale'}</Button></div></div></Card></form><h2 className="mb-3 text-lg font-bold">{bn?'সাম্প্রতিক বিক্রি':'Recent sales'}</h2><Records rows={rows} kind="sales" reload={()=>void load()}/></>}
-export function PurchasesPage(){const bn=useLocale().locale==='bn';const books=useBooks();const [rows,setRows]=useState<Finance[]>([]);const [suppliers,setSuppliers]=useState<Supplier[]>([]);const [supplier,setSupplier]=useState('');const [supplierInvoice,setSupplierInvoice]=useState('');const [lines,setLines]=useState<Line[]>([blank()]);const [discount,setDiscount]=useState('0');const [paid,setPaid]=useState('');const [method,setMethod]=useState('cash');const [error,setError]=useState('');const load=()=>api<{purchases:Finance[]}>('/admin/business/purchases').then(x=>setRows(x.purchases)).catch(e=>setError(message(e)));useEffect(()=>{void load();void api<{suppliers:Supplier[]}>('/admin/business/suppliers').then(r=>{const s=r.suppliers.filter(x=>x.status==='active');setSuppliers(s);setSupplier(s[0]?._id??'')}).catch(e=>setError(message(e)))},[]);const subtotal=lines.reduce((s,l)=>s+l.quantity*l.unitPrice,0);async function submit(e:FormEvent){e.preventDefault();try{await api('/admin/business/purchases',{method:'POST',body:JSON.stringify({supplier,supplierInvoice,items:lines,discount:Number(discount),paidAmount:paid===''?subtotal-Number(discount):Number(paid),paymentMethod:method})});setLines([blank()]);setSupplierInvoice('');setDiscount('0');setPaid('');await load()}catch(err){setError(message(err))}}return <><PageTitle title={bn?'ক্রয় ও স্টক গ্রহণ':'Purchases & stock receiving'} description={bn?'সাপ্লায়ার ইনভয়েস ও বইয়ের স্টক যোগ করুন':'Record supplier invoices and add received book stock.'} action={<Link className="font-semibold text-brand-700" to="/admin/suppliers">{bn?'সাপ্লায়ার →':'Suppliers →'}</Link>}/>{error&&<p className="mb-4 rounded-xl bg-rose-50 p-3 text-rose-700">{error}</p>}<form onSubmit={submit} className="mb-7"><Card><div className="mb-5 grid gap-3 sm:grid-cols-2"><Select label={bn?'সাপ্লায়ার':'Supplier'} value={supplier} onChange={e=>setSupplier(e.target.value)}><option value="">{bn?'নির্বাচন':'Select supplier'}</option>{suppliers.map(s=><option key={s._id} value={s._id}>{s.name}</option>)}</Select><Input label={bn?'সাপ্লায়ারের ইনভয়েস':'Supplier invoice'} value={supplierInvoice} onChange={e=>setSupplierInvoice(e.target.value)}/></div><Fields purchase lines={lines} setLines={setLines} books={books}/><div className="mt-5 grid gap-3 sm:grid-cols-4"><Input label={bn?'ডিসকাউন্ট':'Discount'} type="number" min="0" value={discount} onChange={e=>setDiscount(e.target.value)}/><Input label={bn?'এখন পরিশোধ':'Paid now'} type="number" min="0" value={paid} placeholder={String(subtotal-Number(discount))} onChange={e=>setPaid(e.target.value)}/><Method value={method} onChange={setMethod}/><div className="flex items-end justify-between gap-2"><strong className="text-xl">{currency(subtotal-Number(discount))}</strong><Button disabled={!supplier||lines.some(x=>!x.book)}>{bn?'স্টক গ্রহণ':'Receive stock'}</Button></div></div></Card></form><Records rows={rows} kind="purchases" reload={()=>void load()}/></>}
-export function SuppliersPage(){const bn=useLocale().locale==='bn';const [rows,setRows]=useState<Supplier[]>([]);const [form,setForm]=useState({name:'',phone:'',email:'',address:''});const [error,setError]=useState('');const load=()=>api<{suppliers:Supplier[]}>('/admin/business/suppliers').then(r=>setRows(r.suppliers)).catch(e=>setError(message(e)));useEffect(()=>{void load()},[]);return <><PageTitle title={bn?'সাপ্লায়ার':'Suppliers'} description={bn?'বই সরবরাহকারী ও যোগাযোগের তথ্য':'Manage book vendors and contact details.'}/>{error&&<p className="mb-4 text-rose-700">{error}</p>}<form className="mb-6 grid gap-3 rounded-2xl border bg-white p-5 shadow-sm sm:grid-cols-2 lg:grid-cols-4" onSubmit={async e=>{e.preventDefault();try{await api('/admin/business/suppliers',{method:'POST',body:JSON.stringify(form)});setForm({name:'',phone:'',email:'',address:''});await load()}catch(err){setError(message(err))}}}><Input label={bn?'নাম':'Name'} required value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/><Input label={bn?'ফোন':'Phone'} value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})}/><Input label="Email" type="email" value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/><div className="flex items-end gap-2"><Input label={bn?'ঠিকানা':'Address'} value={form.address} onChange={e=>setForm({...form,address:e.target.value})}/><Button>{bn?'যোগ':'Add'}</Button></div></form><Card className="p-0"><Table><thead className="bg-slate-50 text-xs uppercase"><tr>{['Name','Phone','Email','Address','Status'].map(x=><th className="px-4 py-3" key={x}>{x}</th>)}</tr></thead><tbody className="divide-y">{rows.map(s=><tr key={s._id}><td className="px-4 py-3 font-semibold">{s.name}</td><td className="px-4 py-3">{s.phone||'—'}</td><td className="px-4 py-3">{s.email||'—'}</td><td className="px-4 py-3">{s.address||'—'}</td><td className="px-4 py-3"><Badge>{s.status}</Badge></td></tr>)}</tbody></Table></Card></>}
-export function ExpensesPage(){const bn=useLocale().locale==='bn';const [rows,setRows]=useState<Expense[]>([]);const [form,setForm]=useState({description:'',category:'utilities',amount:'',paymentMethod:'cash',notes:''});const [error,setError]=useState('');const load=()=>api<{expenses:Expense[]}>('/admin/business/expenses').then(r=>setRows(r.expenses)).catch(e=>setError(message(e)));useEffect(()=>{void load()},[]);return <><PageTitle title={bn?'খরচের খাতা':'Expense ledger'} description={bn?'ভাড়া, বেতন, ইউটিলিটি ও পরিচালন খরচ নথিভুক্ত করুন':'Record rent, salaries, utilities and operating costs.'}/>{error&&<p className="mb-4 text-rose-700">{error}</p>}<form className="mb-6 grid gap-3 rounded-2xl border bg-white p-5 shadow-sm sm:grid-cols-2 lg:grid-cols-5" onSubmit={async e=>{e.preventDefault();try{await api('/admin/business/expenses',{method:'POST',body:JSON.stringify({...form,amount:Number(form.amount)})});setForm({...form,description:'',amount:'',notes:''});await load()}catch(err){setError(message(err))}}}><Input label={bn?'বিবরণ':'Description'} required value={form.description} onChange={e=>setForm({...form,description:e.target.value})}/><Select label={bn?'খরচের ধরন':'Category'} value={form.category} onChange={e=>setForm({...form,category:e.target.value})}>{['rent','salary','utilities','transport','maintenance','supplies','other'].map(x=><option key={x}>{x}</option>)}</Select><Input label={bn?'পরিমাণ (৳)':'Amount (BDT)'} type="number" min="1" required value={form.amount} onChange={e=>setForm({...form,amount:e.target.value})}/><Method value={form.paymentMethod} onChange={v=>setForm({...form,paymentMethod:v})}/><div className="flex items-end"><Button>{bn?'খরচ যোগ':'Record expense'}</Button></div></form><Card className="p-0"><Table><thead className="bg-slate-50 text-xs uppercase"><tr>{['Date','Description','Category','Method','Amount'].map(x=><th className="px-4 py-3" key={x}>{x}</th>)}</tr></thead><tbody className="divide-y">{rows.map(x=><tr key={x._id}><td className="px-4 py-3">{date(x.incurredAt)}</td><td className="px-4 py-3 font-semibold">{x.description}</td><td className="px-4 py-3">{x.category}</td><td className="px-4 py-3">{x.paymentMethod}</td><td className="px-4 py-3">{currency(x.amount)}</td></tr>)}</tbody></Table></Card></>}
+
+type Book = { _id: string; title: string; isbn: string; price: number; availableCopies: number }
+type Supplier = { _id: string; name: string; phone?: string; email?: string; address?: string; notes?: string; status: string }
+type Line = { book: string; quantity: number; unitPrice: number }
+type Finance = {
+  _id: string; invoiceNo: string; customerName?: string; supplier?: Supplier | string; total: number
+  paidAmount: number; balanceDue: number; paymentStatus: string; createdAt: string; receivedAt?: string
+  items: Array<{ title: string; quantity: number; unitPrice: number; lineTotal: number }>
+}
+type Expense = { _id: string; description: string; category: string; amount: number; paymentMethod: string; incurredAt: string; notes?: string }
+
+const blank = (): Line => ({ book: '', quantity: 1, unitPrice: 0 })
+
+function useBooks() {
+  const [books, setBooks] = useState<Book[]>([])
+  useEffect(() => { void api<{ books: Book[] }>('/admin/books?limit=100').then((result) => setBooks(result.books)).catch(() => {}) }, [])
+  return books
+}
+
+function LineEditor({ lines, setLines, books, purchase = false }: { lines: Line[]; setLines: (value: Line[]) => void; books: Book[]; purchase?: boolean }) {
+  const { locale } = useLocale()
+  const bn = locale === 'bn'
+  return (
+    <div className="space-y-2.5">
+      {lines.map((line, index) => (
+        <div key={index} className="grid gap-2.5 rounded-xl border border-slate-100 bg-slate-50/60 p-3 sm:grid-cols-[1fr_96px_130px_auto] sm:items-end">
+          <Select label={bn ? 'বই' : 'Book'} value={line.book} onChange={(event) => {
+            const picked = books.find((book) => book._id === event.target.value)
+            setLines(lines.map((item, position) => position === index ? { ...item, book: event.target.value, unitPrice: purchase ? item.unitPrice : picked?.price ?? 0 } : item))
+          }}>
+            <option value="">{bn ? 'বই নির্বাচন' : 'Select book'}</option>
+            {books.map((book) => <option key={book._id} value={book._id}>{book.title} · {book.availableCopies} left</option>)}
+          </Select>
+          <Input label={bn ? 'পরিমাণ' : 'Qty'} type="number" min="1" value={line.quantity} onChange={(event) => setLines(lines.map((item, position) => position === index ? { ...item, quantity: Number(event.target.value) } : item))} />
+          <Input label={purchase ? (bn ? 'ক্রয়মূল্য' : 'Unit cost') : (bn ? 'একক দাম' : 'Unit price')} type="number" min="0" value={line.unitPrice} onChange={(event) => setLines(lines.map((item, position) => position === index ? { ...item, unitPrice: Number(event.target.value) } : item))} />
+          <div className="flex items-center gap-2 pb-0.5">
+            <span className="whitespace-nowrap text-[12px] font-semibold text-slate-600">{currency(line.quantity * line.unitPrice)}</span>
+            <IconButton label="Remove line" icon={Trash2} onClick={() => setLines(lines.filter((_, position) => position !== index))} disabled={lines.length === 1} />
+          </div>
+        </div>
+      ))}
+      <Button type="button" variant="secondary" size="sm" onClick={() => setLines([...lines, blank()])}><Plus size={14} />{bn ? 'বই যোগ করুন' : 'Add another book'}</Button>
+    </div>
+  )
+}
+
+function Method({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const { locale } = useLocale()
+  const bn = locale === 'bn'
+  return (
+    <Select label={bn ? 'পেমেন্ট মাধ্যম' : 'Payment method'} value={value} onChange={(event) => onChange(event.target.value)}>
+      <option value="cash">{bn ? 'নগদ' : 'Cash'}</option>
+      <option value="mobile">{bn ? 'মোবাইল ব্যাংকিং' : 'Mobile banking'}</option>
+      <option value="card">{bn ? 'কার্ড' : 'Card'}</option>
+      <option value="bank">{bn ? 'ব্যাংক' : 'Bank transfer'}</option>
+    </Select>
+  )
+}
+
+function FinanceTable({ rows, kind, reload }: { rows: Finance[]; kind: 'sales' | 'purchases'; reload: () => void }) {
+  const { locale } = useLocale()
+  const bn = locale === 'bn'
+  return (
+    <div className="overflow-x-auto">
+      <table className="data-table min-w-[880px]">
+        <thead>
+          <tr>
+            <th>{bn ? 'ইনভয়েস' : 'Invoice'}</th><th>{bn ? 'তারিখ' : 'Date'}</th><th>{bn ? 'আইটেম' : 'Items'}</th>
+            <th className="text-right">{bn ? 'মোট' : 'Total'}</th><th className="text-right">{bn ? 'পরিশোধ' : 'Paid'}</th>
+            <th className="text-right">{bn ? 'বাকি' : 'Due'}</th><th>{bn ? 'অবস্থা' : 'Status'}</th><th className="text-right">{bn ? 'আদায়' : 'Collect'}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row._id}>
+              <td>
+                <span className="block font-semibold text-slate-900">{row.invoiceNo}</span>
+                <span className="mt-0.5 block truncate text-[11px] text-slate-500">
+                  {kind === 'sales' ? row.customerName : typeof row.supplier === 'object' ? row.supplier?.name : 'Supplier'}
+                </span>
+              </td>
+              <td className="whitespace-nowrap text-[12px] text-slate-500">{date(row.createdAt)}</td>
+              <td className="max-w-[220px] truncate text-[12px] text-slate-600">{row.items.map((item) => `${item.title} ×${item.quantity}`).join(', ')}</td>
+              <td className="text-right font-semibold text-slate-800">{currency(row.total)}</td>
+              <td className="text-right text-slate-600">{currency(row.paidAmount)}</td>
+              <td className={'text-right font-semibold ' + (row.balanceDue > 0 ? 'text-amber-700' : 'text-emerald-700')}>{currency(row.balanceDue)}</td>
+              <td><Badge tone={row.paymentStatus === 'paid' ? 'green' : row.paymentStatus === 'partial' ? 'amber' : 'red'}>{row.paymentStatus}</Badge></td>
+              <td className="text-right">{row.balanceDue > 0 ? <Collect id={row._id} kind={kind} reload={reload} /> : <span className="text-[11.5px] text-slate-400">Settled</span>}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function Collect({ id, kind, reload }: { id: string; kind: 'sales' | 'purchases'; reload: () => void }) {
+  const { locale } = useLocale()
+  const [amount, setAmount] = useState('')
+  return (
+    <form className="inline-flex items-center gap-1" onSubmit={async (event) => {
+      event.preventDefault()
+      try {
+        await api(`/admin/business/${kind}/${id}/payments`, { method: 'POST', body: JSON.stringify({ amount: Number(amount), paymentMethod: 'cash' }) })
+        setAmount(''); reload()
+      } catch (error) { window.alert(message(error)) }
+    }}>
+      <input aria-label="Payment amount" className="h-8 w-20 rounded-lg border border-slate-200 px-2 text-[12px]" type="number" min="1" placeholder={locale === 'bn' ? 'টাকা' : 'Amount'} value={amount} onChange={(event) => setAmount(event.target.value)} required />
+      <Button size="sm" className="h-8">{locale === 'bn' ? 'আদায়' : 'Collect'}</Button>
+    </form>
+  )
+}
+
+function PageAction({ to, children }: { to: string; children: ReactNode }) {
+  return <Link to={to} className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">{children}</Link>
+}
+
+export function SalesPage() {
+  const { t, locale } = useLocale()
+  const bn = locale === 'bn'
+  const books = useBooks()
+  const [rows, setRows] = useState<Finance[]>([])
+  const [loading, setLoading] = useState(true)
+  const [lines, setLines] = useState<Line[]>([blank()])
+  const [name, setName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [discount, setDiscount] = useState('0')
+  const [paid, setPaid] = useState('')
+  const [method, setMethod] = useState('cash')
+  const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
+  const [busy, setBusy] = useState(false)
+  const load = useCallback(() => {
+    setLoading(true)
+    api<{ sales: Finance[] }>('/admin/business/sales').then((result) => setRows(result.sales)).catch((err) => setError(message(err))).finally(() => setLoading(false))
+  }, [])
+  useEffect(() => { load() }, [load])
+  const subtotal = lines.reduce((sum, line) => sum + line.quantity * line.unitPrice, 0)
+  const total = Math.max(0, subtotal - Number(discount || 0))
+  const paidNow = paid === '' ? total : Number(paid)
+  const dues = rows.reduce((sum, row) => sum + row.balanceDue, 0)
+
+  async function submit(event: FormEvent) {
+    event.preventDefault(); setBusy(true); setError(''); setNotice('')
+    try {
+      await api('/admin/business/sales', { method: 'POST', body: JSON.stringify({ items: lines, discount: Number(discount), paidAmount: paidNow, paymentMethod: method, customerName: name || 'Walk-in customer', customerPhone: phone }) })
+      setLines([blank()]); setName(''); setPhone(''); setDiscount('0'); setPaid('')
+      setNotice(bn ? 'বিক্রি নথিভুক্ত হয়েছে।' : 'Sale recorded and stock updated.')
+      load()
+    } catch (err) { setError(message(err)) } finally { setBusy(false) }
+  }
+
+  return (
+    <>
+      <PageTitle eyebrow={t('businessGroup')} title={bn ? 'বিক্রি / POS' : 'Sales / POS'} description={bn ? 'বিক্রি, ইনভয়েস ও বকেয়া আদায়।' : 'Sell from the same catalogue you lend from. Stock and dues update together.'} action={<PageAction to="/admin/analytics">{t('analytics')} →</PageAction>} />
+      {error && <div className="mb-4"><Alert message={error} onClose={() => setError('')} /></div>}
+      {notice && <div className="mb-4"><Alert tone="success" message={notice} onClose={() => setNotice('')} /></div>}
+
+      <div className="mb-5 grid gap-4 sm:grid-cols-3">
+        <StatCard label={bn ? 'আজকের বিক্রি' : 'Sales today'} value={currency(rows.filter((row) => new Date(row.createdAt).toDateString() === new Date().toDateString()).reduce((sum, row) => sum + row.total, 0))} icon={ShoppingCart} tone="lime" />
+        <StatCard label={t('receivables')} value={currency(dues)} icon={CircleDollarSign} tone={dues ? 'amber' : 'brand'} />
+        <StatCard label={bn ? 'ইনভয়েস' : 'Invoices'} value={rows.length} hint="Most recent 100" icon={Receipt} tone="teal" />
+      </div>
+
+      <form onSubmit={submit} className="mb-6">
+        <Card>
+          <div className="mb-4 grid gap-3 sm:grid-cols-2">
+            <Input label={bn ? 'ক্রেতার নাম' : 'Customer name'} value={name} onChange={(event) => setName(event.target.value)} placeholder="Walk-in customer" />
+            <Input label={bn ? 'ফোন' : 'Phone'} value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="01XXXXXXXXX" />
+          </div>
+          <LineEditor lines={lines} setLines={setLines} books={books} />
+          <div className="mt-5 grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-4">
+            <Input label={bn ? 'ডিসকাউন্ট' : 'Discount'} type="number" min="0" value={discount} onChange={(event) => setDiscount(event.target.value)} />
+            <Input label={bn ? 'এখন পরিশোধ' : 'Paid now'} type="number" min="0" value={paid} placeholder={String(total)} onChange={(event) => setPaid(event.target.value)} />
+            <Method value={method} onChange={setMethod} />
+            <div className="flex flex-col justify-end gap-1.5">
+              <div className="flex items-baseline justify-between text-[12px] text-slate-500"><span>Total</span><strong className="font-display text-lg text-brand-800">{currency(total)}</strong></div>
+              <Button type="submit" loading={busy} disabled={lines.some((line) => !line.book)}><ShoppingCart size={15} />{bn ? 'বিক্রি রেকর্ড' : 'Record sale'}</Button>
+            </div>
+          </div>
+          <p className="mt-2 text-[11px] text-slate-500">Only available copies can be sold. A paid amount below the total books the balance as a receivable.</p>
+        </Card>
+      </form>
+
+      <Card className="overflow-hidden p-0">
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+          <h2 className="text-[15px] font-semibold text-slate-900">{bn ? 'সাম্প্রতিক বিক্রি' : 'Recent sales'}</h2>
+          <Badge tone="slate">{rows.length} invoices</Badge>
+        </div>
+        {loading ? <SkeletonRows rows={4} /> : rows.length ? <FinanceTable rows={rows} kind="sales" reload={load} /> : <EmptyState icon={Receipt} title={bn ? 'এখনো কোনো বিক্রি নেই' : 'No sales yet'} description="Record the first sale above." />}
+      </Card>
+    </>
+  )
+}
+
+export function PurchasesPage() {
+  const { t, locale } = useLocale()
+  const bn = locale === 'bn'
+  const books = useBooks()
+  const [rows, setRows] = useState<Finance[]>([])
+  const [suppliers, setSuppliers] = useState<Supplier[]>([])
+  const [loading, setLoading] = useState(true)
+  const [supplier, setSupplier] = useState('')
+  const [supplierInvoice, setSupplierInvoice] = useState('')
+  const [lines, setLines] = useState<Line[]>([blank()])
+  const [discount, setDiscount] = useState('0')
+  const [paid, setPaid] = useState('')
+  const [method, setMethod] = useState('cash')
+  const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
+  const [busy, setBusy] = useState(false)
+  const load = useCallback(() => {
+    setLoading(true)
+    api<{ purchases: Finance[] }>('/admin/business/purchases').then((result) => setRows(result.purchases)).catch((err) => setError(message(err))).finally(() => setLoading(false))
+  }, [])
+  useEffect(() => {
+    load()
+    void api<{ suppliers: Supplier[] }>('/admin/business/suppliers').then((result) => {
+      const active = result.suppliers.filter((item) => item.status === 'active')
+      setSuppliers(active); setSupplier((current) => current || active[0]?._id || '')
+    }).catch((err) => setError(message(err)))
+  }, [load])
+  const subtotal = lines.reduce((sum, line) => sum + line.quantity * line.unitPrice, 0)
+  const total = Math.max(0, subtotal - Number(discount || 0))
+  const payables = rows.reduce((sum, row) => sum + row.balanceDue, 0)
+
+  async function submit(event: FormEvent) {
+    event.preventDefault(); setBusy(true); setError(''); setNotice('')
+    try {
+      await api('/admin/business/purchases', { method: 'POST', body: JSON.stringify({ supplier, supplierInvoice, items: lines, discount: Number(discount), paidAmount: paid === '' ? total : Number(paid), paymentMethod: method }) })
+      setLines([blank()]); setSupplierInvoice(''); setDiscount('0'); setPaid('')
+      setNotice(bn ? 'স্টক গ্রহণ নথিভুক্ত হয়েছে।' : 'Stock received and recorded.')
+      load()
+    } catch (err) { setError(message(err)) } finally { setBusy(false) }
+  }
+
+  return (
+    <>
+      <PageTitle eyebrow={t('businessGroup')} title={bn ? 'ক্রয় ও স্টক গ্রহণ' : 'Purchases & stock receiving'} description={bn ? 'সাপ্লায়ার ইনভয়েস ও স্টক যোগ করুন।' : 'Record supplier invoices; received copies increase total and available stock.'} action={<PageAction to="/admin/suppliers"><Landmark size={15} />{t('suppliers')}</PageAction>} />
+      {error && <div className="mb-4"><Alert message={error} onClose={() => setError('')} /></div>}
+      {notice && <div className="mb-4"><Alert tone="success" message={notice} onClose={() => setNotice('')} /></div>}
+
+      <div className="mb-5 grid gap-4 sm:grid-cols-3">
+        <StatCard label={t('payables')} value={currency(payables)} icon={Truck} tone={payables ? 'amber' : 'brand'} />
+        <StatCard label={bn ? 'ক্রয় রেকর্ড' : 'Purchase records'} value={rows.length} hint="Most recent 100" icon={Receipt} tone="teal" />
+        <StatCard label={t('suppliers')} value={suppliers.length} hint="Active vendors" icon={Landmark} tone="lime" />
+      </div>
+
+      {!suppliers.length && <div className="mb-4"><Alert tone="info" message={bn ? 'স্টক গ্রহণের আগে একজন সাপ্লায়ার যোগ করুন।' : 'Add a supplier before receiving stock.'} /></div>}
+
+      <form onSubmit={submit} className="mb-6">
+        <Card>
+          <div className="mb-4 grid gap-3 sm:grid-cols-2">
+            <Select label={bn ? 'সাপ্লায়ার' : 'Supplier'} value={supplier} onChange={(event) => setSupplier(event.target.value)} required>
+              <option value="">{bn ? 'সাপ্লায়ার নির্বাচন' : 'Select supplier'}</option>
+              {suppliers.map((item) => <option key={item._id} value={item._id}>{item.name}</option>)}
+            </Select>
+            <Input label={bn ? 'সাপ্লায়ারের ইনভয়েস' : 'Supplier invoice ref'} value={supplierInvoice} onChange={(event) => setSupplierInvoice(event.target.value)} placeholder="INV-2026-001" />
+          </div>
+          <LineEditor lines={lines} setLines={setLines} books={books} purchase />
+          <div className="mt-5 grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-4">
+            <Input label={bn ? 'ডিসকাউন্ট' : 'Discount'} type="number" min="0" value={discount} onChange={(event) => setDiscount(event.target.value)} />
+            <Input label={bn ? 'এখন পরিশোধ' : 'Paid now'} type="number" min="0" value={paid} placeholder={String(total)} onChange={(event) => setPaid(event.target.value)} />
+            <Method value={method} onChange={setMethod} />
+            <div className="flex flex-col justify-end gap-1.5">
+              <div className="flex items-baseline justify-between text-[12px] text-slate-500"><span>Total</span><strong className="font-display text-lg text-brand-800">{currency(total)}</strong></div>
+              <Button type="submit" loading={busy} disabled={!supplier || lines.some((line) => !line.book)}><Truck size={15} />{bn ? 'স্টক গ্রহণ' : 'Receive stock'}</Button>
+            </div>
+          </div>
+        </Card>
+      </form>
+
+      <Card className="overflow-hidden p-0">
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+          <h2 className="text-[15px] font-semibold text-slate-900">{bn ? 'সাম্প্রতিক ক্রয়' : 'Recent purchases'}</h2>
+          <Badge tone="slate">{rows.length} records</Badge>
+        </div>
+        {loading ? <SkeletonRows rows={4} /> : rows.length ? <FinanceTable rows={rows} kind="purchases" reload={load} /> : <EmptyState icon={Truck} title={bn ? 'এখনো ক্রয় নেই' : 'No purchases yet'} description="Receive your first supplier delivery above." />}
+      </Card>
+    </>
+  )
+}
+
+export function SuppliersPage() {
+  const { t, locale } = useLocale()
+  const bn = locale === 'bn'
+  const [rows, setRows] = useState<Supplier[]>([])
+  const [loading, setLoading] = useState(true)
+  const [form, setForm] = useState({ name: '', phone: '', email: '', address: '', notes: '' })
+  const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
+  const [busy, setBusy] = useState(false)
+  const load = useCallback(() => {
+    setLoading(true)
+    api<{ suppliers: Supplier[] }>('/admin/business/suppliers').then((result) => setRows(result.suppliers)).catch((err) => setError(message(err))).finally(() => setLoading(false))
+  }, [])
+  useEffect(() => { load() }, [load])
+
+  return (
+    <>
+      <PageTitle eyebrow={t('businessGroup')} title={t('suppliers')} description={bn ? 'বই সরবরাহকারী ও যোগাযোগের তথ্য।' : 'Book vendors, contact details and receiving status.'} action={<PageAction to="/admin/purchases"><Truck size={15} />{t('purchases')}</PageAction>} />
+      {error && <div className="mb-4"><Alert message={error} onClose={() => setError('')} /></div>}
+      {notice && <div className="mb-4"><Alert tone="success" message={notice} onClose={() => setNotice('')} /></div>}
+
+      <div className="grid gap-5 lg:grid-cols-[.9fr_1.1fr]">
+        <Card>
+          <h2 className="text-[15px] font-semibold text-slate-900">{bn ? 'নতুন সাপ্লায়ার' : 'Add a supplier'}</h2>
+          <form className="mt-4 space-y-3" onSubmit={async (event) => {
+            event.preventDefault(); setBusy(true); setError('')
+            try {
+              await api('/admin/business/suppliers', { method: 'POST', body: JSON.stringify(form) })
+              setForm({ name: '', phone: '', email: '', address: '', notes: '' })
+              setNotice(bn ? 'সাপ্লায়ার যোগ হয়েছে।' : 'Supplier added.')
+              load()
+            } catch (err) { setError(message(err)) } finally { setBusy(false) }
+          }}>
+            <Input label={t('name')} required value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Input label={bn ? 'ফোন' : 'Phone'} value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} />
+              <Input label="Email" type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} />
+            </div>
+            <Input label={bn ? 'ঠিকানা' : 'Address'} value={form.address} onChange={(event) => setForm({ ...form, address: event.target.value })} />
+            <Textarea label={bn ? 'নোট' : 'Notes'} value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} rows={2} />
+            <Button type="submit" className="w-full" loading={busy}><Plus size={15} />{bn ? 'সাপ্লায়ার যোগ' : 'Add supplier'}</Button>
+          </form>
+        </Card>
+
+        <Card className="overflow-hidden p-0">
+          <div className="border-b border-slate-100 px-5 py-4"><h2 className="text-[15px] font-semibold text-slate-900">{rows.length} {t('suppliers').toLowerCase()}</h2></div>
+          {loading ? <SkeletonRows rows={4} /> : rows.length ? (
+            <ul className="divide-y divide-slate-100">
+              {rows.map((supplier) => (
+                <li key={supplier._id} className="flex items-start gap-3 px-5 py-3.5">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-50 text-[13px] font-bold text-brand-800">{supplier.name.slice(0, 1).toUpperCase()}</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2"><p className="truncate text-[13.5px] font-semibold text-slate-900">{supplier.name}</p><Badge tone={supplier.status === 'active' ? 'green' : 'slate'}>{supplier.status}</Badge></div>
+                    <p className="mt-0.5 truncate text-[11.5px] text-slate-500">{[supplier.phone, supplier.email, supplier.address].filter(Boolean).join(' · ') || 'No contact details'}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : <EmptyState icon={Landmark} title={bn ? 'কোনো সাপ্লায়ার নেই' : 'No suppliers yet'} description="Add a vendor to start receiving stock." />}
+        </Card>
+      </div>
+    </>
+  )
+}
+
+export function ExpensesPage() {
+  const { t, locale } = useLocale()
+  const bn = locale === 'bn'
+  const [rows, setRows] = useState<Expense[]>([])
+  const [loading, setLoading] = useState(true)
+  const [form, setForm] = useState({ description: '', category: 'utilities', amount: '', paymentMethod: 'cash', notes: '' })
+  const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
+  const [busy, setBusy] = useState(false)
+  const load = useCallback(() => {
+    setLoading(true)
+    api<{ expenses: Expense[] }>('/admin/business/expenses').then((result) => setRows(result.expenses)).catch((err) => setError(message(err))).finally(() => setLoading(false))
+  }, [])
+  useEffect(() => { load() }, [load])
+  const categories = ['rent', 'salary', 'utilities', 'transport', 'maintenance', 'supplies', 'other']
+  const monthTotal = rows.filter((row) => new Date(row.incurredAt).getMonth() === new Date().getMonth()).reduce((sum, row) => sum + row.amount, 0)
+
+  return (
+    <>
+      <PageTitle eyebrow={t('businessGroup')} title={bn ? 'খরচের খাতা' : 'Expense ledger'} description={bn ? 'ভাড়া, বেতন, ইউটিলিটি ও পরিচালন খরচ নথিভুক্ত করুন।' : 'Rent, salaries, utilities and operating costs in one ledger.'} />
+      {error && <div className="mb-4"><Alert message={error} onClose={() => setError('')} /></div>}
+      {notice && <div className="mb-4"><Alert tone="success" message={notice} onClose={() => setNotice('')} /></div>}
+
+      <div className="mb-5 grid gap-4 sm:grid-cols-3">
+        <StatCard label="This month" value={currency(monthTotal)} icon={Wallet} tone="rose" />
+        <StatCard label="Entries" value={rows.length} hint="Most recent 100" icon={Receipt} tone="teal" />
+        <StatCard label="Largest category" value={rows.length ? rows.reduce((best, row) => row.amount > best.amount ? row : best, rows[0]).category : '—'} icon={TrendingDown} tone="amber" />
+      </div>
+
+      <form className="mb-6" onSubmit={async (event) => {
+        event.preventDefault(); setBusy(true); setError('')
+        try {
+          await api('/admin/business/expenses', { method: 'POST', body: JSON.stringify({ ...form, amount: Number(form.amount) }) })
+          setForm({ ...form, description: '', amount: '', notes: '' })
+          setNotice(bn ? 'খরচ নথিভুক্ত হয়েছে।' : 'Expense recorded.')
+          load()
+        } catch (err) { setError(message(err)) } finally { setBusy(false) }
+      }}>
+        <Card className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5 lg:items-end">
+          <Input label={bn ? 'বিবরণ' : 'Description'} required value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} className="lg:col-span-2" />
+          <Select label={bn ? 'খরচের ধরন' : 'Category'} value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })}>
+            {categories.map((category) => <option key={category} value={category}>{category}</option>)}
+          </Select>
+          <Input label={bn ? 'পরিমাণ (৳)' : 'Amount (BDT)'} type="number" min="1" required value={form.amount} onChange={(event) => setForm({ ...form, amount: event.target.value })} />
+          <div className="grid grid-cols-2 gap-2">
+            <Method value={form.paymentMethod} onChange={(value) => setForm({ ...form, paymentMethod: value })} />
+            <Button type="submit" className="mt-[26px]" loading={busy}>{bn ? 'যোগ' : 'Record'}</Button>
+          </div>
+        </Card>
+      </form>
+
+      <Card className="overflow-hidden p-0">
+        <div className="border-b border-slate-100 px-5 py-4"><h2 className="text-[15px] font-semibold text-slate-900">{bn ? 'সাম্প্রতিক খরচ' : 'Recent expenses'}</h2></div>
+        {loading ? <SkeletonRows rows={4} /> : rows.length ? (
+          <div className="overflow-x-auto">
+            <table className="data-table min-w-[660px]">
+              <thead><tr><th>{bn ? 'তারিখ' : 'Date'}</th><th>{bn ? 'বিবরণ' : 'Description'}</th><th>{bn ? 'ধরন' : 'Category'}</th><th>{bn ? 'মাধ্যম' : 'Method'}</th><th className="text-right">{bn ? 'পরিমাণ' : 'Amount'}</th></tr></thead>
+              <tbody>
+                {rows.map((row) => (
+                  <tr key={row._id}>
+                    <td className="whitespace-nowrap text-[12px] text-slate-500">{date(row.incurredAt)}</td>
+                    <td className="font-medium text-slate-800">{row.description}</td>
+                    <td><Badge tone="slate">{row.category}</Badge></td>
+                    <td className="text-[12px] capitalize text-slate-600">{row.paymentMethod}</td>
+                    <td className="text-right font-semibold text-rose-700">−{currency(row.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : <EmptyState icon={Wallet} title={bn ? 'কোনো খরচ নেই' : 'No expenses recorded'} description="Add rent, salaries or utilities to keep the ledger complete." />}
+      </Card>
+    </>
+  )
+}

@@ -1,2 +1,41 @@
 <!doctype html>
-<html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="theme-color" content="#15803D" /><meta name="description" content="A modern library management system for students and administrators." /><title>Leafline Library</title></head><body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body></html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Leafline Library · Library management</title>
+    <meta name="description" content="Leafline Library — a calm, complete library management system for lending, members and counter sales." />
+    <meta name="theme-color" content="#072319" />
+    <meta name="color-scheme" content="light" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Leafline Library" />
+    <meta property="og:description" content="Catalogue, circulation, members and counter sales in one calm workspace." />
+    <meta property="og:locale" content="en_BD" />
+    <meta property="og:locale:alternate" content="bn_BD" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <style>
+      /* Paint the paper colour before the bundle loads so there is no white flash. */
+      html { background: #f5f6f1; }
+      #boot { position: fixed; inset: 0; display: grid; place-items: center; background: #f5f6f1; transition: opacity .2s ease; }
+      #boot div { display: flex; flex-direction: column; align-items: center; gap: 14px; font: 500 13px/1.4 system-ui, sans-serif; color: #536158; }
+      #boot span { width: 34px; height: 34px; border-radius: 12px; background: linear-gradient(135deg, #072319, #1d7550); animation: pulse 1.1s ease-in-out infinite; }
+      @keyframes pulse { 0%, 100% { transform: scale(.92); opacity: .7 } 50% { transform: scale(1); opacity: 1 } }
+      @media (prefers-reduced-motion: reduce) { #boot span { animation: none } }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <div id="boot" aria-hidden="true"><div><span></span>Opening the library…</div></div>
+    <noscript>
+      <div style="max-width: 32rem; margin: 4rem auto; padding: 1.5rem; border: 1px solid #dfe5dd; border-radius: 1rem; font: 400 14px/1.6 system-ui, sans-serif; color: #26332c;">
+        <h1 style="font-size: 1.25rem; margin: 0 0 .5rem;">JavaScript is required</h1>
+        <p style="margin: 0;">Leafline Library is an interactive catalogue. Please enable JavaScript to search books and manage loans.</p>
+      </div>
+    </noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

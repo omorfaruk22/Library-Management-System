@@ -1,38 +1,168 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { Search, UserRound, Mail, Phone, Eye, UserCheck, Ban, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Ban, Mail, Phone, Search, UserCheck, UserRound, Users } from 'lucide-react'
 import { useLocale } from '../i18n'
-import { Alert, Badge, Button, Card, EmptyState, Input, Modal, PageTitle, Spinner } from '../components'
+import {
+  Alert, Badge, Button, Card, EmptyState, Input, Modal, PageTitle, Pagination, SkeletonRows, Toolbar,
+} from '../ui/primitives'
 import { api, currency, date, message } from '../lib/api'
 
 type Student = { _id: string; name: string; email: string; studentId: string; phone?: string; status: 'active' | 'suspended'; createdAt: string; updatedAt?: string }
 type Loan = { _id: string; issuedAt: string; dueAt: string; returnedAt?: string; status: string; fine: number; book?: { title?: string; isbn?: string }; isOverdue?: boolean }
-type Pagination = { page: number; pages: number; total: number }
+type PaginationData = { page: number; pages: number; total: number }
+
+const PAGE_SIZE = 10
+
 export default function Students() {
   const { t } = useLocale()
   const [students, setStudents] = useState<Student[]>([])
   const [query, setQuery] = useState('')
   const [searchText, setSearchText] = useState('')
   const [page, setPage] = useState(1)
-  const [pagination, setPagination] = useState<Pagination>({ page: 1, pages: 1, total: 0 })
+  const [pagination, setPagination] = useState<PaginationData>({ page: 1, pages: 1, total: 0 })
   const [busy, setBusy] = useState(true)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [detail, setDetail] = useState<{ student: Student; loans: Loan[] } | null>(null)
   const [detailBusy, setDetailBusy] = useState(false)
   const [detailError, setDetailError] = useState('')
+  const [confirmStatus, setConfirmStatus] = useState<Student | null>(null)
+
   const load = useCallback(async (targetPage = page, q = searchText) => {
     setBusy(true)
-    try { const params = new URLSearchParams({ page: String(targetPage), limit: '10' }); if (q) params.set('q', q); const data = await api<{ students: Student[]; pagination: Pagination }>('/admin/students?' + params); setStudents(data.students); setPagination(data.pagination) }
-    catch (err) { setError(message(err)) } finally { setBusy(false) }
+    try {
+      const params = new URLSearchParams({ page: String(targetPage), limit: String(PAGE_SIZE) })
+      if (q) params.set('q', q)
+      const data = await api<{ students: Student[]; pagination: PaginationData }>('/admin/students?' + params.toString())
+      setStudents(data.students); setPagination(data.pagination)
+    } catch (err) { setError(message(err)) } finally { setBusy(false) }
   }, [page, searchText])
   useEffect(() => { void load() }, [load])
-  const search = (event: FormEvent) => { event.preventDefault(); setPage(1); setSearchText(query.trim()) }
-  const showDetails = async (student: Student) => { setDetailBusy(true); setDetailError(''); setDetail(null); try { setDetail(await api<{ student: Student; loans: Loan[] }>('/admin/students/' + student._id)) } catch (err) { setDetailError(message(err)) } finally { setDetailBusy(false) } }
-  const changeStatus = async (student: Student) => { const status = student.status === 'active' ? 'suspended' : 'active'; try { await api('/admin/students/' + student._id + '/status', { method: 'PATCH', body: JSON.stringify({ status }) }); setNotice(t(status === 'active' ? 'activate' : 'suspend')); await load() } catch (err) { setError(message(err)) } }
-  return <><PageTitle title={t('registeredStudents')} description={t('searchStudents')} />
-    {error && <div className="mb-4"><Alert message={error} onClose={() => setError('')} /></div>}{notice && <div className="mb-4"><Alert tone="success" message={notice} onClose={() => setNotice('')} /></div>}
-    <Card className="mb-5"><form onSubmit={search} className="flex flex-col gap-3 sm:flex-row"><Input aria-label={t('searchStudents')} placeholder={t('searchStudents')} value={query} onChange={(e) => setQuery(e.target.value)} /><Button type="submit"><Search size={16} />{t('search')}</Button></form></Card>
-    <Card className="p-0">{busy ? <Spinner label={t('loading')} /> : students.length ? <><div className="overflow-x-auto"><table className="w-full min-w-[920px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-5 py-3">{t('student')}</th><th className="px-5 py-3">{t('studentId')}</th><th className="px-5 py-3">{t('phone')}</th><th className="px-5 py-3">{t('createdAt')}</th><th className="px-5 py-3">{t('status')}</th><th className="px-5 py-3">{t('actions')}</th></tr></thead><tbody className="divide-y divide-slate-100">{students.map((student) => <tr key={student._id}><td className="px-5 py-4"><div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-full bg-brand-50 text-brand-700"><UserRound size={18} /></span><span><span className="block font-semibold text-slate-800">{student.name}</span><span className="mt-1 flex items-center gap-1 text-xs text-slate-500"><Mail size={12} />{student.email}</span></span></div></td><td className="px-5 py-4 font-mono text-xs text-slate-600">{student.studentId}</td><td className="px-5 py-4 text-slate-500">{student.phone ? <span className="flex items-center gap-1"><Phone size={13} />{student.phone}</span> : '—'}</td><td className="px-5 py-4 text-slate-500">{date(student.createdAt)}</td><td className="px-5 py-4"><Badge tone={student.status === 'active' ? 'green' : 'red'}>{student.status === 'active' ? t('active') : t('inactive')}</Badge></td><td className="px-5 py-4"><div className="flex gap-2"><Button variant="secondary" className="px-3 py-2" onClick={() => void showDetails(student)}><Eye size={14} />{t('details')}</Button><Button variant={student.status === 'active' ? 'danger' : 'secondary'} className="px-3 py-2" onClick={() => void changeStatus(student)}>{student.status === 'active' ? <><Ban size={14} />{t('suspend')}</> : <><UserCheck size={14} />{t('activate')}</>}</Button></div></td></tr>)}</tbody></table></div><div className="flex items-center justify-between gap-3 px-5 py-4"><span className="text-sm text-slate-500">{t('showing')} {students.length} / {pagination.total}</span><div className="flex items-center gap-2"><Button variant="secondary" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}><ChevronLeft size={16} />{t('previous')}</Button><span className="text-sm">{t('page')} {page} / {pagination.pages}</span><Button variant="secondary" disabled={page >= pagination.pages} onClick={() => setPage((value) => value + 1)}>{t('next')}<ChevronRight size={16} /></Button></div></div></> : <div className="p-5"><EmptyState title={t('noRecords')} /></div>}</Card>
-    {(detail || detailBusy || detailError) && <Modal title={t('details')} wide onClose={() => { setDetail(null); setDetailError('') }}>{detailBusy ? <Spinner label={t('loading')} /> : detailError ? <Alert message={detailError} /> : detail && <div className="space-y-5"><div className="grid gap-3 rounded-xl bg-slate-50 p-4 text-sm sm:grid-cols-2"><p><strong>{t('fullName')}:</strong> {detail.student.name}</p><p><strong>{t('email')}:</strong> {detail.student.email}</p><p><strong>{t('studentId')}:</strong> {detail.student.studentId}</p><p><strong>{t('phone')}:</strong> {detail.student.phone || '—'}</p><p><strong>{t('status')}:</strong> {detail.student.status}</p><p><strong>{t('registrationDate')}:</strong> {date(detail.student.createdAt)}</p><p><strong>{t('updatedAt')}:</strong> {date(detail.student.updatedAt)}</p></div><h3 className="font-semibold">{t('issuedBooks')} · {t('recentActivity')}</h3>{detail.loans.length ? <div className="overflow-x-auto"><table className="w-full min-w-[620px] text-sm"><thead><tr className="bg-slate-50 text-left"><th className="p-3">{t('bookTitle')}</th><th className="p-3">{t('issueDate')}</th><th className="p-3">{t('dueDate')}</th><th className="p-3">{t('status')}</th><th className="p-3">{t('fine')}</th></tr></thead><tbody>{detail.loans.map((loan) => <tr key={loan._id} className="border-t"><td className="p-3">{loan.book?.title}</td><td className="p-3">{date(loan.issuedAt)}</td><td className="p-3">{date(loan.dueAt)}</td><td className="p-3">{loan.isOverdue ? t('overdue') : loan.status}</td><td className="p-3">{currency(loan.fine)}</td></tr>)}</tbody></table></div> : <p className="text-sm text-slate-500">{t('noRecords')}</p>}</div>}</Modal>}
-  </>
+
+  const showDetails = async (student: Student) => {
+    setDetailBusy(true); setDetailError(''); setDetail(null)
+    try { setDetail(await api<{ student: Student; loans: Loan[] }>('/admin/students/' + student._id)) }
+    catch (err) { setDetailError(message(err)) } finally { setDetailBusy(false) }
+  }
+  const changeStatus = async () => {
+    if (!confirmStatus) return
+    const next = confirmStatus.status === 'active' ? 'suspended' : 'active'
+    try {
+      await api('/admin/students/' + confirmStatus._id + '/status', { method: 'PATCH', body: JSON.stringify({ status: next }) })
+      setNotice(next === 'active' ? 'Member reactivated.' : 'Member suspended from borrowing.')
+      setConfirmStatus(null)
+      await load()
+    } catch (err) { setError(message(err)); setConfirmStatus(null) }
+  }
+
+  const activeCount = students.filter((student) => student.status === 'active').length
+
+  return (
+    <>
+      <PageTitle
+        eyebrow={t('circulationGroup')}
+        title={t('registeredStudents')}
+        description="Member records, borrowing access and full loan history."
+      />
+      {error && <div className="mb-4"><Alert message={error} onClose={() => setError('')} /></div>}
+      {notice && <div className="mb-4"><Alert tone="success" message={notice} onClose={() => setNotice('')} /></div>}
+
+      <Card className="overflow-hidden p-0">
+        <Toolbar className="justify-between">
+          <form onSubmit={(event: FormEvent) => { event.preventDefault(); setPage(1); setSearchText(query.trim()) }} className="flex w-full gap-2 sm:w-auto">
+            <Input aria-label={t('searchStudents')} placeholder={t('searchStudents')} value={query} onChange={(event) => setQuery(event.target.value)} icon={<Search size={15} />} className="sm:w-80" />
+            <Button type="submit" variant="secondary">{t('search')}</Button>
+          </form>
+          <p className="text-[11.5px] text-slate-500">{pagination.total} {t('members').toLowerCase()} · <span className="font-semibold text-emerald-700">{activeCount} active on this page</span></p>
+        </Toolbar>
+
+        {busy ? <SkeletonRows rows={5} /> : students.length ? (
+          <>
+            <div className="overflow-x-auto">
+              <table className="data-table min-w-[860px]">
+                <thead><tr><th>{t('student')}</th><th>{t('studentId')}</th><th>{t('phone')}</th><th>{t('registrationDate')}</th><th>{t('status')}</th><th className="text-right">{t('actions')}</th></tr></thead>
+                <tbody>
+                  {students.map((student) => (
+                    <tr key={student._id}>
+                      <td>
+                        <div className="flex items-center gap-3">
+                          <span className="grid h-9 w-9 place-items-center rounded-full bg-brand-50 text-[13px] font-bold text-brand-800">{student.name.trim().slice(0, 1).toUpperCase()}</span>
+                          <div className="min-w-0">
+                            <span className="block truncate font-semibold text-slate-900">{student.name}</span>
+                            <span className="mt-0.5 flex items-center gap-1 text-[11.5px] text-slate-500"><Mail size={11} />{student.email}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="font-mono text-[11.5px] text-slate-600">{student.studentId}</td>
+                      <td className="text-[12px] text-slate-500">{student.phone ? <span className="inline-flex items-center gap-1"><Phone size={12} />{student.phone}</span> : '—'}</td>
+                      <td className="whitespace-nowrap text-[12px] text-slate-500">{date(student.createdAt)}</td>
+                      <td><Badge tone={student.status === 'active' ? 'green' : 'red'} dot>{student.status === 'active' ? t('active') : t('suspended')}</Badge></td>
+                      <td>
+                        <div className="flex justify-end gap-1.5">
+                          <Button size="sm" variant="secondary" onClick={() => void showDetails(student)}>{t('details')}</Button>
+                          <Button size="sm" variant={student.status === 'active' ? 'danger' : 'secondary'} onClick={() => setConfirmStatus(student)}>
+                            {student.status === 'active' ? <><Ban size={13} />{t('suspend')}</> : <><UserCheck size={13} />{t('activate')}</>}
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <Pagination page={page} pages={pagination.pages} total={pagination.total} shown={students.length} onChange={setPage} />
+          </>
+        ) : <EmptyState icon={Users} title={t('noRecords')} description="Member accounts appear here after registration." />}
+      </Card>
+
+      {(detail || detailBusy || detailError) && (
+        <Modal wide title={t('details')} description={detail?.student.name} onClose={() => { setDetail(null); setDetailError('') }}>
+          {detailBusy ? <SkeletonRows rows={4} /> : detailError ? <Alert message={detailError} /> : detail && (
+            <div className="space-y-5">
+              <div className="grid gap-3 rounded-xl border border-slate-100 bg-slate-50/60 p-4 text-[12.5px] sm:grid-cols-2">
+                {[
+                  [t('fullName'), detail.student.name], [t('email'), detail.student.email],
+                  [t('studentId'), detail.student.studentId], [t('phone'), detail.student.phone || '—'],
+                  [t('registrationDate'), date(detail.student.createdAt)], [t('status'), detail.student.status],
+                ].map(([label, value]) => (
+                  <div key={label}><dt className="text-[10.5px] font-semibold uppercase tracking-wide text-slate-400">{label}</dt><dd className="mt-0.5 font-medium text-slate-800">{value}</dd></div>
+                ))}
+              </div>
+              <div>
+                <h3 className="mb-2 flex items-center gap-1.5 text-[13px] font-semibold text-slate-900"><UserRound size={14} className="text-brand-700" />{t('issuedBooks')} · {detail.loans.length}</h3>
+                {detail.loans.length ? (
+                  <div className="max-h-72 overflow-auto rounded-xl border border-slate-100">
+                    <table className="data-table">
+                      <thead><tr><th>{t('bookTitle')}</th><th>{t('issueDate')}</th><th>{t('dueDate')}</th><th>{t('status')}</th><th className="text-right">{t('fine')}</th></tr></thead>
+                      <tbody>
+                        {detail.loans.map((loan) => (
+                          <tr key={loan._id}>
+                            <td className="font-medium text-slate-800">{loan.book?.title}</td>
+                            <td className="whitespace-nowrap text-[12px] text-slate-500">{date(loan.issuedAt)}</td>
+                            <td className="whitespace-nowrap text-[12px] text-slate-500">{date(loan.dueAt)}</td>
+                            <td><Badge tone={loan.isOverdue ? 'red' : loan.status === 'returned' ? 'slate' : 'green'}>{loan.isOverdue ? t('overdue') : loan.status === 'returned' ? t('returned') : t('issued')}</Badge></td>
+                            <td className="text-right">{currency(loan.fine)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : <p className="rounded-xl border border-dashed border-slate-200 p-4 text-center text-[12.5px] text-slate-500">{t('noRecords')}</p>}
+              </div>
+            </div>
+          )}
+        </Modal>
+      )}
+
+      {confirmStatus && (
+        <Modal title={(confirmStatus.status === 'active' ? t('suspend') : t('activate')) + ' · ' + confirmStatus.name} onClose={() => setConfirmStatus(null)}
+          footer={<><Button variant="secondary" onClick={() => setConfirmStatus(null)}>{t('cancel')}</Button><Button variant={confirmStatus.status === 'active' ? 'danger' : 'primary'} onClick={() => void changeStatus()}>{confirmStatus.status === 'active' ? t('suspend') : t('activate')}</Button></>}>
+          <p className="text-sm leading-6 text-slate-600">
+            {confirmStatus.status === 'active'
+              ? 'Suspended members keep their history but cannot borrow new books or sign in to borrow. Existing loans still need returning.'
+              : 'Reactivating restores borrowing immediately. Outstanding fines are unaffected.'}
+          </p>
+        </Modal>
+      )}
+    </>
+  )
 }
