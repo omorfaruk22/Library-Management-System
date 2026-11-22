@@ -1,18 +1,60 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme {
-  --color-brand-50: #f0fdf4;
-  --color-brand-100: #dcfce7;
-  --color-brand-600: #16a34a;
-  --color-brand-700: #15803D;
-  --color-brand-800: #166534;
-  --shadow-soft: 0 12px 40px rgba(15, 23, 42, .07);
+  --color-brand-50: #edf8f0;
+  --color-brand-100: #d9efdf;
+  --color-brand-600: #21834b;
+  --color-brand-700: #17643b;
+  --color-brand-800: #10482c;
+  --color-slate-50: #f5f8f5;
+  --color-slate-100: #eaf0eb;
+  --color-slate-200: #d7e1d9;
+  --color-slate-300: #bdcbbf;
+  --color-slate-400: #95a799;
+  --color-slate-500: #718276;
+  --color-slate-600: #536659;
+  --color-slate-700: #3a4c40;
+  --color-slate-800: #26372c;
+  --color-slate-900: #142219;
+  --color-slate-950: #0a130d;
+  --shadow-soft: 0 14px 38px rgba(10, 30, 17, .07);
   --font-sans: 'DM Sans', 'Noto Sans Bengali', sans-serif;
 }
-:root { font-family: 'DM Sans', 'Noto Sans Bengali', sans-serif; color: #17251c; background: #f6f8f6; font-synthesis: none; text-rendering: optimizeLegibility; }
+:root { font-family: 'DM Sans', 'Noto Sans Bengali', sans-serif; color: #142219; background: #f2f6f2; font-synthesis: none; text-rendering: optimizeLegibility; }
 * { box-sizing: border-box; }
-body { margin: 0; min-width: 320px; min-height: 100vh; }
+body { margin: 0; min-width: 320px; min-height: 100vh; background: #f2f6f2; }
 button, input, select, textarea { font: inherit; }
 button { cursor: pointer; }
-::selection { background: #bbf7d0; }
+::selection { background: #b8e9c3; color: #0a130d; }
+
+.library-header { background: rgba(10, 19, 13, .96) !important; border-color: #203328 !important; color: #eef7ef; }
+.library-header .brand-name { color: #f5fff6; }
+.library-header .brand-tagline { color: #a6bba9; }
+.library-header nav > a { color: #c3d2c5; }
+.library-header nav > a[aria-current="page"] { background: #183c29; color: #d8f5df; }
+.library-header nav > a:hover { background: #172b1e; color: #effff1; }
+.library-header .header-locale { color: #d3e0d4; border-color: #34483a; }
+.library-header .header-locale:hover, .library-header .header-menu:hover { background: #1a2c20; }
+.library-header .header-menu { color: #d3e0d4; border: 0; }
+.library-header nav { border-color: #253a2b; }
+.library-header nav a { color: #d3e0d4; }
+.library-header nav a:hover { background: #193923; color: #f2fff4; }
+.library-header nav button { color: #d3e0d4; }
+.library-header .bg-white { color: #26372c; }
+.library-header .bg-white a { color: #26372c; }
+.library-header .bg-white button.text-rose-600 { color: #e11d48; }
+.library-header a.text-slate-700, .library-header a.text-slate-500 { color: #c3d2c5; }
+.library-footer { background: #0a130d !important; border-color: #203328 !important; }
+.library-footer, .library-footer span { color: #a6b6a9; }
+
+.dashboard-hero { background: linear-gradient(118deg, #0b1810 0%, #123d27 58%, #17643b 100%); }
+.dashboard-hero::after { content: ""; position: absolute; inset: 0; z-index: -1; opacity: .24; background-image: radial-gradient(rgba(219, 255, 226, .55) .7px, transparent .7px); background-size: 18px 18px; mask-image: linear-gradient(90deg, transparent, black); }
+.dashboard-orb { position: absolute; z-index: 0; border-radius: 9999px; pointer-events: none; }
+.dashboard-orb-one { width: 290px; height: 290px; right: 8%; top: -190px; background: rgba(181, 255, 152, .12); filter: blur(2px); }
+.dashboard-orb-two { width: 190px; height: 190px; right: -55px; bottom: -125px; border: 1px solid rgba(224, 255, 225, .16); box-shadow: 0 0 0 28px rgba(224, 255, 225, .04), 0 0 0 58px rgba(224, 255, 225, .03); }
+.dashboard-metric { border-color: #e4ede5; transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease; }
+.dashboard-metric:hover { transform: translateY(-3px); border-color: #b9d8bf; box-shadow: 0 18px 42px rgba(16, 72, 44, .1); }
+.dashboard-panel { box-shadow: 0 12px 36px rgba(10, 30, 17, .05); }
+@media (prefers-reduced-motion: reduce) { .dashboard-metric, .dashboard-book, .dashboard-quick { transition: none !important; } }
+
