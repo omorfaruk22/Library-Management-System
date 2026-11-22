@@ -210,7 +210,7 @@ export function Header() {
               onClick={logout}
               aria-label={t('signOut')}
               title={t('signOut')}
-              className="hidden h-9 items-center gap-1.5 rounded-lg border border-white/15 px-3 text-[13px] font-semibold text-emerald-50/90 transition hover:border-white/25 hover:bg-white/10 hover:text-white sm:inline-flex"
+              className="hidden h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-white/15 px-3 text-[13px] font-semibold text-emerald-50/90 transition hover:border-white/25 hover:bg-white/10 hover:text-white sm:inline-flex"
             >
               <LogOut size={15} aria-hidden="true" />{t('signOut')}
             </button>
