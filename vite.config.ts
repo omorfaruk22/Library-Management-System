@@ -8,9 +8,16 @@ export default defineConfig(({ mode }) => {
   // The preview API is only mounted for `vite` (dev/preview) when the real
   // Express + MongoDB backend is not configured. Set DEMO_API=off to disable.
   const demoApi = env.VITE_DEMO_API !== 'off'
+  // Vercel exposes the deployment target to the build. Preview deployments carry
+  // the sample dataset, so the login screens may advertise the demo accounts;
+  // production must never do that.
+  const previewBuild = !process.env.VERCEL || process.env.VERCEL_ENV === 'preview'
 
   return {
     plugins: [react(), tailwindcss(), demoApiPlugin({ enabled: demoApi })],
+    define: {
+      __SAMPLE_DATA__: JSON.stringify(previewBuild),
+    },
     server: {
       host: '0.0.0.0',
       port: 5173,
