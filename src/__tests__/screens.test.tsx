@@ -131,8 +131,12 @@ describe('rendered screens', () => {
     await expectPage('/admin/analytics', /Revenue|Top|Borrow/i)
   })
 
-  it('shows the preview-mode hint on the login screen', async () => {
+  it('shows the sample-data hint on the sign-in screens', async () => {
     renderRoute('/login')
-    expect(await screen.findByText(/Preview mode/i)).toBeTruthy()
+    expect(await screen.findByText(/Preview mode — sample data/i)).toBeTruthy()
+    await waitFor(() => expect(document.body.textContent).toMatch(/nusrat\.jahan@example\.com/))
+    cleanup()
+    renderRoute('/admin-login')
+    await waitFor(() => expect(document.body.textContent).toMatch(/admin@leafline\.example/))
   })
 })

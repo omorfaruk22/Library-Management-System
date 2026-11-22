@@ -52,8 +52,8 @@ function AuthShell({ title, subtitle, children, footer, tone = 'member', demo }:
           <p className="mt-1.5 text-[13px] leading-6 text-slate-500">{subtitle}</p>
           {demo && (
             <div className="mt-4 rounded-xl border border-brand-100 bg-brand-50/70 p-3 text-[11.5px] leading-5 text-brand-900">
-              <p className="font-semibold">Preview mode — no database attached</p>
-              <p className="mt-0.5 text-brand-900/70">Any password with 4+ characters works. Sample {demo.role} account: <span className="font-mono">{demo.email}</span></p>
+              <p className="font-semibold">Preview mode — sample data</p>
+              <p className="mt-0.5 text-brand-900/70">This deployment runs on the bundled sample catalogue. {demo.role === 'admin' ? 'Staff' : 'Member'} account: <span className="font-mono">{demo.email}</span> · password <span className="font-mono">{demo.password}</span></p>
             </div>
           )}
           <div className="mt-6">{children}</div>
@@ -102,7 +102,7 @@ export function LoginPage({ admin = false }: { admin?: boolean }) {
   return (
     <AuthShell
       tone={admin ? 'staff' : 'member'}
-      demo={{ role: admin ? 'admin' : 'student', email: admin ? 'admin@leafline.example' : 'nusrat.jahan@example.com', password: 'demo1234' }}
+      demo={__SAMPLE_DATA__ ? { role: admin ? 'admin' : 'student', email: admin ? 'admin@leafline.example' : 'nusrat.jahan@example.com', password: 'demo1234' } : undefined}
       title={admin ? t('adminSignInTitle') : t('signInTitle')}
       subtitle={admin ? 'Use the credentials issued to your library team account.' : 'Use your member email to reach your reading desk.'}
       footer={admin

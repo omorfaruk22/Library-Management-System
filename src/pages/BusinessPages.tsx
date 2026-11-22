@@ -139,6 +139,7 @@ const METHOD_LABEL: Record<string, string> = { cash: 'Cash', mobile: 'Mobile ban
 
 /** Printable invoice. Hidden on screen, shown by the print stylesheet. */
 function InvoiceDocument({ record, kind }: { record: Finance; kind: 'sales' | 'purchases' }) {
+  const { t } = useLocale()
   const supplierName = typeof record.supplier === 'object' ? record.supplier?.name : record.supplier
   const counterparty = kind === 'sales' ? record.customerName || 'Walk-in customer' : supplierName || 'Supplier'
   return (
@@ -146,7 +147,7 @@ function InvoiceDocument({ record, kind }: { record: Finance; kind: 'sales' | 'p
       <header className="flex items-start justify-between gap-6 border-b border-slate-200 pb-4">
         <div>
           <p className="font-display text-lg font-semibold text-brand-900">Leafline Library</p>
-          <p className="mt-1 text-[11.5px] leading-5 text-slate-500">Pata Poth Library · Chattogram<br />library@leafline.example · 01800 000 000</p>
+          <p className="mt-1 text-[11.5px] leading-5 text-slate-500">{t('brand')} · Chattogram, Bangladesh</p>
         </div>
         <div className="text-right">
           <p className="text-[10.5px] font-bold uppercase tracking-[0.18em] text-slate-400">{kind === 'sales' ? 'Sales invoice' : 'Purchase record'}</p>
