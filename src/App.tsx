@@ -15,6 +15,11 @@ import Students from './pages/Students'
 import { ChangePasswordPage, ProfilePage } from './pages/Profile'
 
 const AdminReports = lazy(() => import('./pages/AdminReports'))
+const BusinessAnalytics = lazy(() => import('./components/pages/BusinessAnalytics'))
+const SalesPage = lazy(() => import('./pages/BusinessPages').then(m => ({ default: m.SalesPage })))
+const PurchasesPage = lazy(() => import('./pages/BusinessPages').then(m => ({ default: m.PurchasesPage })))
+const SuppliersPage = lazy(() => import('./pages/BusinessPages').then(m => ({ default: m.SuppliersPage })))
+const ExpensesPage = lazy(() => import('./pages/BusinessPages').then(m => ({ default: m.ExpensesPage })))
 const AdminSettings = lazy(() => import('./pages/AdminSettings'))
 function Guard({ role, children }: { role?: 'admin' | 'student'; children: React.ReactNode }) {
   const { user, loading } = useAuth(); const location = useLocation(); const { t } = useLocale()
@@ -46,8 +51,13 @@ export default function App() {
     <Route path="/admin/books" element={<Guard role="admin"><AdminBooks /></Guard>} />
     <Route path="/admin/issued-books" element={<Guard role="admin"><AdminLoans /></Guard>} />
     <Route path="/admin/students" element={<Guard role="admin"><Students /></Guard>} />
-    <Route path="/admin/reports" element={<Guard role="admin"><AdminReports /></Guard>} />
+    <Route path="/admin/reports" element={<Guard role="admin"><AdminReports /></Guard>} />`n    <Route path="/admin/analytics" element={<Guard role="admin"><BusinessAnalytics /></Guard>} />
+    <Route path="/admin/sales" element={<Guard role="admin"><SalesPage /></Guard>} />
+    <Route path="/admin/purchases" element={<Guard role="admin"><PurchasesPage /></Guard>} />
+    <Route path="/admin/suppliers" element={<Guard role="admin"><SuppliersPage /></Guard>} />
+    <Route path="/admin/expenses" element={<Guard role="admin"><ExpensesPage /></Guard>} />
     <Route path="/admin/settings" element={<Guard role="admin"><AdminSettings /></Guard>} />
     <Route path="*" element={<Missing />} />
   </Routes></Suspense></Layout>
 }
+

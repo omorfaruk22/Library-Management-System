@@ -61,6 +61,71 @@ loanSchema.index({ student: 1, book: 1 }, { unique: true, partialFilterExpressio
 loanSchema.index({ status: 1, dueAt: 1 })
 loanSchema.index({ student: 1, createdAt: -1 })
 
+const supplierSchema = new Schema({
+  name: { type: String, required: true, trim: true, maxlength: 120, unique: true },
+  phone: { type: String, trim: true, maxlength: 30, default: '' },
+  email: { type: String, trim: true, lowercase: true, maxlength: 254, default: '' },
+  address: { type: String, trim: true, maxlength: 400, default: '' },
+  notes: { type: String, trim: true, maxlength: 1000, default: '' },
+  status: { type: String, enum: ['active', 'inactive'], default: 'active' },
+}, { timestamps: true })
+
+const businessLineSchema = new Schema({
+  book: { type: Schema.Types.ObjectId, ref: 'Book', required: true },
+  title: { type: String, required: true, trim: true },
+  isbn: { type: String, required: true, trim: true },
+  quantity: { type: Number, required: true, min: 1 },
+  unitPrice: { type: Number, required: true, min: 0 },
+  lineTotal: { type: Number, required: true, min: 0 },
+}, { _id: false })
+
+const saleSchema = new Schema({
+  invoiceNo: { type: String, required: true, unique: true },
+  customer: { type: Schema.Types.ObjectId, ref: 'User', default: null },
+  customerName: { type: String, trim: true, maxlength: 120, default: 'Walk-in customer' },
+  customerPhone: { type: String, trim: true, maxlength: 30, default: '' },
+  items: { type: [businessLineSchema], required: true, validate: (items: unknown[]) => items.length > 0 },
+  subtotal: { type: Number, required: true, min: 0 },
+  discount: { type: Number, required: true, min: 0, default: 0 },
+  total: { type: Number, required: true, min: 0 },
+  paidAmount: { type: Number, required: true, min: 0, default: 0 },
+  balanceDue: { type: Number, required: true, min: 0, default: 0 },
+  paymentMethod: { type: String, enum: ['cash', 'mobile', 'card', 'bank'], default: 'cash' },
+  paymentStatus: { type: String, enum: ['paid', 'partial', 'due'], default: 'due' },
+  createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+}, { timestamps: true })
+saleSchema.index({ createdAt: -1 })
+saleSchema.index({ customerPhone: 1, createdAt: -1 })
+
+const purchaseSchema = new Schema({
+  invoiceNo: { type: String, required: true, unique: true },
+  supplier: { type: Schema.Types.ObjectId, ref: 'Supplier', required: true },
+  supplierInvoice: { type: String, trim: true, maxlength: 100, default: '' },
+  items: { type: [businessLineSchema], required: true, validate: (items: unknown[]) => items.length > 0 },
+  subtotal: { type: Number, required: true, min: 0 },
+  discount: { type: Number, required: true, min: 0, default: 0 },
+  total: { type: Number, required: true, min: 0 },
+  paidAmount: { type: Number, required: true, min: 0, default: 0 },
+  balanceDue: { type: Number, required: true, min: 0, default: 0 },
+  paymentMethod: { type: String, enum: ['cash', 'mobile', 'card', 'bank'], default: 'cash' },
+  paymentStatus: { type: String, enum: ['paid', 'partial', 'due'], default: 'due' },
+  receivedAt: { type: Date, required: true, default: Date.now },
+  createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+}, { timestamps: true })
+purchaseSchema.index({ createdAt: -1 })
+purchaseSchema.index({ supplier: 1, createdAt: -1 })
+
+const expenseSchema = new Schema({
+  description: { type: String, required: true, trim: true, maxlength: 180 },
+  category: { type: String, required: true, trim: true, maxlength: 80 },
+  amount: { type: Number, required: true, min: 1 },
+  paymentMethod: { type: String, enum: ['cash', 'mobile', 'card', 'bank'], default: 'cash' },
+  incurredAt: { type: Date, required: true, default: Date.now },
+  notes: { type: String, trim: true, maxlength: 1000, default: '' },
+  createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+}, { timestamps: true })
+expenseSchema.index({ incurredAt: -1 })
+expenseSchema.index({ category: 1, incurredAt: -1 })
 const passwordResetSchema = new Schema({
   user: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   tokenHash: { type: String, required: true, unique: true },
@@ -103,9 +168,12 @@ export const Category = getModel('Category', categorySchema)
 export const Author = getModel('Author', authorSchema)
 export const Book = getModel('Book', bookSchema)
 export const Loan = getModel('Loan', loanSchema)
+export const Supplier = getModel('Supplier', supplierSchema)
+export const Sale = getModel('Sale', saleSchema)
+export const Purchase = getModel('Purchase', purchaseSchema)
+export const Expense = getModel('Expense', expenseSchema)
 export const PasswordReset = getModel('PasswordReset', passwordResetSchema)
 export const EmailVerification = getModel('EmailVerification', emailVerificationSchema)
 export const AuditLog = getModel('AuditLog', auditLogSchema)
 export const RateLimitCounter = getModel('RateLimitCounter', rateLimitCounterSchema)
 export const SystemSettings = getModel('SystemSettings', settingsSchema)
-

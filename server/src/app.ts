@@ -8,6 +8,7 @@ import { rateLimit } from 'express-rate-limit'
 import { z } from 'zod'
 import { connectDB } from './db.js'
 import { authRoutes } from './auth.js'
+import { businessRoutes } from './business.js'
 import { Author, AuditLog, Book, Category, EmailVerification, Loan, SystemSettings, User } from './models.js'
 import { calculateFine, isOverdue, startOfCalendarDay } from './domain.js'
 import { asyncRoute, audit, errorHandler, HttpError, requireAuth, requireRole, validate } from './middleware.js'
@@ -38,6 +39,7 @@ app.use('/api', asyncRoute(async (_req, _res, next) => {
 }))
 app.get('/api/health', (_req, res) => res.json({ ok: true }))
 app.use('/api/auth', rateLimit({ windowMs: 15 * 60 * 1000, limit: 120, standardHeaders: 'draft-7', legacyHeaders: false }), authRoutes())
+app.use('/api/admin/business', businessRoutes())
 const emailChangeLimiter = createPersistentRateLimiter({ namespace: 'email-change', limit: 4, windowMs: 60 * 60 * 1000, message: 'Too many email change requests. Please wait and try again.', increment: incrementMongoRateLimitCounter })
 
 function pageOptions(req: Request) {
@@ -422,6 +424,3 @@ app.use(errorHandler)
 export default app
 
 function escapeRegex(value: string) { return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') }
-
-
-

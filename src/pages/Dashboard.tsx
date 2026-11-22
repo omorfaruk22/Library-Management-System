@@ -1,5 +1,5 @@
 import {
-  ArrowRight, ArrowUpRight, BookCheck, BookOpen, CalendarDays, CircleAlert,
+  ArrowRight, ArrowUpRight, BookCheck, BookOpen, CalendarDays, CircleAlert, CircleDollarSign, TrendingDown, PackageSearch,
   ClipboardList, Search, Settings, Sparkles, Tags, UserRound, Users, type LucideIcon,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -50,8 +50,9 @@ function QuickLink({ to, icon: Icon, title, description }: { to: string; icon: L
 
 export default function Dashboard() {
   const { user } = useAuth()
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
   const isAdmin = user?.role === 'admin'
+  const businessQuery = useQuery({ queryKey: ['business-summary'], queryFn: () => api<{todaySales:number;todayPurchases:number;todayExpenses:number;receivables:number;payables:number;lowStock:number}>('/admin/business/summary'), enabled: isAdmin })
   const query = useQuery({
     queryKey: ['dashboard', user?.role],
     queryFn: () => api<DashboardData>(isAdmin ? '/dashboard/admin' : '/dashboard/student'),
@@ -66,6 +67,9 @@ export default function Dashboard() {
     { label: t('members'), value: stats?.registeredUsers ?? 0, hint: t('registeredStudents'), icon: Users, tone: 'bg-green-50 text-green-800' },
     { label: t('authorsListed'), value: stats?.authors ?? 0, hint: t('authors'), icon: UserRound, tone: 'bg-emerald-50 text-emerald-800' },
     { label: t('categoriesListed'), value: stats?.categories ?? 0, hint: t('categories'), icon: Tags, tone: 'bg-lime-50 text-lime-800' },
+    { label: locale === 'bn' ? 'আজকের বিক্রি' : 'Today sales', value: currency(businessQuery.data?.todaySales ?? 0), hint: (locale === 'bn' ? 'আজকের ক্রয়: ' : 'Today purchases: ') + currency(businessQuery.data?.todayPurchases ?? 0), icon: CircleDollarSign, tone: 'bg-green-50 text-green-800' },
+    { label: locale === 'bn' ? 'ক্রেতার বকেয়া' : 'Receivables', value: currency(businessQuery.data?.receivables ?? 0), hint: (locale === 'bn' ? 'সাপ্লায়ার বকেয়া: ' : 'Payables: ') + currency(businessQuery.data?.payables ?? 0), icon: CalendarDays, tone: 'bg-amber-50 text-amber-800' },
+    { label: locale === 'bn' ? 'আজকের খরচ' : 'Expenses today', value: currency(businessQuery.data?.todayExpenses ?? 0), hint: (locale === 'bn' ? 'কম স্টকের বই: ' : 'Low-stock titles: ') + (businessQuery.data?.lowStock ?? 0), icon: TrendingDown, tone: 'bg-rose-50 text-rose-800' },
   ]
   const studentMetrics: Metric[] = [
     { label: t('totalCatalogBooks'), value: stats?.totalCatalogBooks ?? 0, hint: t('booksListed'), icon: BookOpen, tone: 'bg-emerald-50 text-emerald-800' },
@@ -75,6 +79,9 @@ export default function Dashboard() {
   ]
   const loans = isAdmin ? query.data?.recentLoans : query.data?.activeLoans
   const quickLinks = isAdmin ? [
+    { to: '/admin/sales', icon: CircleDollarSign, title: locale === 'bn' ? 'বিক্রি / POS' : 'Sales / POS', description: locale === 'bn' ? 'ইনভয়েস ও পেমেন্ট রেকর্ড' : 'Create invoices and collect payments' },
+    { to: '/admin/purchases', icon: PackageSearch, title: locale === 'bn' ? 'ক্রয় ও স্টক' : 'Purchases & stock', description: locale === 'bn' ? 'সাপ্লায়ার থেকে বই গ্রহণ' : 'Receive books from suppliers' },
+    { to: '/admin/expenses', icon: TrendingDown, title: locale === 'bn' ? 'খরচের খাতা' : 'Expense ledger', description: locale === 'bn' ? 'পরিচালন খরচ নথিভুক্ত' : 'Record operating expenses' },
     { to: '/admin/books', icon: BookOpen, title: t('books'), description: t('booksListed') },
     { to: '/admin/issued-books', icon: BookCheck, title: t('issuedBooks'), description: t('recentActivity') },
     { to: '/admin/students', icon: Users, title: t('students'), description: t('registeredStudents') },
@@ -147,4 +154,3 @@ export default function Dashboard() {
     </section>}
   </div>
 }
-
