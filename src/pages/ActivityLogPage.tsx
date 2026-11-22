@@ -99,7 +99,7 @@ export default function ActivityLogPage() {
         }
       />
 
-      {query.error && <Alert message={message(query.error)} className="mb-4" />}
+      {query.error && <div className="mb-4"><Alert message={message(query.error)} /></div>}
 
       <Card className="overflow-hidden p-0">
         <form onSubmit={submitSearch} className="border-b border-slate-100 px-4 py-4 sm:px-5">
