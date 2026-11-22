@@ -181,6 +181,40 @@ const movements: Movement[] = [
   { _id: 'mov_5', book: books[16]._id, kind: 'restock', quantity: 2, totalBefore: 3, totalAfter: 5, availableBefore: 1, availableAfter: 3, reason: 'Book club donation', actor: 'admin_1', createdAt: ago(27) },
 ]
 
+/* Historical ledger, so the analytics charts show real shape rather than one day. */
+for (let monthsAgo = 5; monthsAgo >= 1; monthsAgo -= 1) {
+  for (let batch = 0; batch < 4; batch += 1) {
+    const bookIndex = (monthsAgo * 3 + batch) % books.length
+    const quantity = 1 + (batch % 2)
+    const unitPrice = books[bookIndex].price
+    const date = new Date()
+    date.setDate(8 + batch * 5)
+    date.setMonth(date.getMonth() - monthsAgo)
+    const total = unitPrice * quantity
+    const paidAmount = batch === 3 ? Math.round(total / 2) : total
+    sales.push({
+      _id: `sale_h${monthsAgo}${batch}`,
+      invoiceNo: `SL-10${(50 + monthsAgo * 10 + batch).toString()}`,
+      customerName: batch === 0 ? 'Walk-in customer' : ['Tanvir Hasan', 'Shirin Sultana', 'Rifat Books Corner'][batch - 1],
+      customerPhone: '',
+      items: [{ book: books[bookIndex]._id, title: books[bookIndex].title, isbn: books[bookIndex].isbn, quantity, unitPrice, lineTotal: total }],
+      subtotal: total, discount: 0, total, paidAmount,
+      balanceDue: total - paidAmount,
+      paymentMethod: batch % 2 === 0 ? 'cash' : 'mobile',
+      paymentStatus: total - paidAmount === 0 ? 'paid' : 'partial',
+      createdAt: date.toISOString(),
+    })
+  }
+  const expenseDate = new Date()
+  expenseDate.setDate(2)
+  expenseDate.setMonth(expenseDate.getMonth() - monthsAgo)
+  expenses.push(
+    { _id: `exp_h${monthsAgo}a`, description: 'Monthly hall rent', category: 'rent', amount: 24000, paymentMethod: 'bank', incurredAt: expenseDate.toISOString(), notes: '' },
+    { _id: `exp_h${monthsAgo}b`, description: 'Librarian salary', category: 'salary', amount: 32000, paymentMethod: 'bank', incurredAt: expenseDate.toISOString(), notes: '' },
+    { _id: `exp_h${monthsAgo}c`, description: 'Utilities and internet', category: 'utilities', amount: 3800 + monthsAgo * 120, paymentMethod: 'mobile', incurredAt: expenseDate.toISOString(), notes: '' },
+  )
+}
+
 const wishlist: Array<{ book: string; createdAt: string }> = [{ book: books[4]._id, createdAt: ago(3) }, { book: books[19]._id, createdAt: ago(8) }]
 const reservations: Array<{ _id: string; book: string; status: string; createdAt: string; expiresAt: string | null }> = [
   { _id: 'res_1', book: books[5]._id, status: 'waiting', createdAt: ago(5), expiresAt: null },

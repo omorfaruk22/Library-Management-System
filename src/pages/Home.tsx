@@ -4,7 +4,7 @@ import {
   ArrowRight, BookMarked, BookOpen, CalendarClock, Check, ChevronRight, CircleDollarSign, ClipboardCheck,
   Clock3, Heart, LibraryBig, Search, ShieldCheck, Sparkles, Star, Tags, Users, UsersRound, Warehouse, type LucideIcon,
 } from 'lucide-react'
-import { Alert, Badge, Button, Card, CoverCard, SectionHeading, Skeleton } from '../ui/primitives'
+import { Alert, Badge, Card, CoverCard, SectionHeading, Skeleton } from '../ui/primitives'
 import { HeroBadge, MetricStrip, TextLink } from '../ui/marketing'
 import { useLocale } from '../i18n'
 import { api, currency, message } from '../lib/api'
@@ -254,7 +254,6 @@ export default function Home() {
           <div className="flex flex-wrap gap-2.5">
             <Link to="/register" className="inline-flex h-11 items-center gap-2 rounded-xl bg-lime-accent px-5 text-sm font-bold text-brand-950 transition hover:bg-lime-200">{t('signUp')} <ArrowRight size={15} aria-hidden="true" /></Link>
             <Link to="/books" className="inline-flex h-11 items-center gap-2 rounded-xl border border-white/20 px-5 text-sm font-semibold text-white transition hover:bg-white/10"><BookOpen size={15} aria-hidden="true" />{t('browseBooks')}</Link>
-            <Button as-child variant="ghost" className="hidden" aria-hidden="true" />
           </div>
         </div>
       </section>
