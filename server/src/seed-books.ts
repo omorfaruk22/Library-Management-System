@@ -12,6 +12,7 @@ type SeedBook = {
   author: string
   totalCopies: number
   coverImage: string
+  price: number
 }
 
 async function seedBooks() {
@@ -34,13 +35,12 @@ async function seedBooks() {
     )
     const result = await Book.updateOne(
       { isbn: item.isbn },
-      { $setOnInsert: {
+      { $set: { coverImage: item.coverImage, price: item.price }, $setOnInsert: {
         title: item.title,
         isbn: item.isbn,
         description: item.description,
         category: category._id,
         author: author._id,
-        coverImage: item.coverImage,
         totalCopies: item.totalCopies,
         availableCopies: item.totalCopies,
         status: 'active',
@@ -62,3 +62,4 @@ seedBooks()
   .finally(async () => {
     await mongoose.disconnect()
   })
+

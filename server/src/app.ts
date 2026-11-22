@@ -96,7 +96,7 @@ function csvCell(value: unknown): string {
 const categoryInput = z.object({ name: z.string().trim().min(2).max(80), description: z.string().trim().max(400).optional().default(''), status: z.enum(['active', 'inactive']).optional().default('active') })
 const authorInput = z.object({ name: z.string().trim().min(2).max(120), biography: z.string().trim().max(2000).optional().default(''), status: z.enum(['active', 'inactive']).optional().default('active') })
 const secureCoverUrl = z.string().trim().url().refine((value) => { const url = new URL(value); return url.protocol === 'https:' && !url.username && !url.password }, 'Use a secure HTTPS cover image URL.').or(z.literal('')).optional().default('')
-const bookInput = z.object({ title: z.string().trim().min(1).max(180), isbn: z.string().trim().min(5).max(30), description: z.string().max(3000).optional().default(''), category: z.string().min(1), author: z.string().min(1), publisher: z.string().trim().max(160).optional().default(''), publicationYear: z.coerce.number().int().min(0).max(3000).nullable().optional().default(null), shelfLocation: z.string().trim().max(80).optional().default(''), coverImage: secureCoverUrl, totalCopies: z.coerce.number().int().min(0).max(100000), status: z.enum(['active', 'inactive']).optional().default('active') })
+const bookInput = z.object({ price: z.coerce.number().int().min(0).max(10000000).optional().default(0), title: z.string().trim().min(1).max(180), isbn: z.string().trim().min(5).max(30), description: z.string().max(3000).optional().default(''), category: z.string().min(1), author: z.string().min(1), publisher: z.string().trim().max(160).optional().default(''), publicationYear: z.coerce.number().int().min(0).max(3000).nullable().optional().default(null), shelfLocation: z.string().trim().max(80).optional().default(''), coverImage: secureCoverUrl, totalCopies: z.coerce.number().int().min(0).max(100000), status: z.enum(['active', 'inactive']).optional().default('active') })
 
 app.get('/api/public/summary', asyncRoute(async (_req, res) => {
   const [books, categories] = await Promise.all([Book.countDocuments({ status: 'active' }), Category.countDocuments({ status: 'active' })])
@@ -145,7 +145,7 @@ app.get('/api/dashboard/student', requireAuth, requireRole('student'), asyncRout
   const [totalCatalogBooks, returnedBooks, activeLoans, recentBooks] = await Promise.all([
     Book.countDocuments({ status: 'active' }), Loan.countDocuments({ student: req.user!.id, status: 'returned' }),
     Loan.find({ student: req.user!.id, status: 'issued' }).populate('book', 'title isbn coverImage').sort({ dueAt: 1 }).lean(),
-    Book.find({ status: 'active' }).populate('author', 'name').populate('category', 'name').sort({ createdAt: -1 }).limit(4).select('title isbn coverImage availableCopies totalCopies author category createdAt').lean(),
+    Book.find({ status: 'active' }).populate('author', 'name').populate('category', 'name').sort({ createdAt: -1 }).limit(4).select('title isbn coverImage price availableCopies totalCopies author category createdAt').lean(),
   ])
   const overdueLoans = activeLoans.filter((loan) => isOverdue(loan.dueAt, now))
   const outstandingFines = activeLoans.reduce((sum, loan) => sum + calculateFine(loan.dueAt, now, policy.finePerDay), 0)
@@ -422,3 +422,6 @@ app.use(errorHandler)
 export default app
 
 function escapeRegex(value: string) { return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') }
+
+
+

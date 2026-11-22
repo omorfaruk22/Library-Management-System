@@ -21,7 +21,7 @@ type Loan = {
   book?: { title?: string; isbn?: string; coverImage?: string }
 }
 type RecentBook = {
-  _id: string; title: string; isbn: string; coverImage?: string; availableCopies: number
+  _id: string; title: string; isbn: string; coverImage?: string; price?: number; availableCopies: number
   author?: { name?: string }; category?: { name?: string }
 }
 type DashboardData = { stats: Stats; recentLoans?: Loan[]; activeLoans?: Loan[]; recentBooks?: RecentBook[] }
@@ -142,8 +142,9 @@ export default function Dashboard() {
       {query.data?.recentBooks?.length ? <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{query.data.recentBooks.map((book) =>
         <Link to={'/books/' + book._id} key={book._id} className="dashboard-book group overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
           <div className="relative h-40 overflow-hidden bg-gradient-to-br from-emerald-50 to-lime-100">{book.coverImage ? <img src={book.coverImage} alt={book.title} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" /> : <div className="grid h-full place-items-center text-brand-800"><BookOpen size={38} /></div>}<span className="absolute right-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-bold text-emerald-900">{book.availableCopies} {t('copiesAvailable')}</span></div>
-          <div className="p-4"><div className="line-clamp-2 min-h-10 font-bold text-slate-900">{book.title}</div><p className="mt-1 truncate text-xs text-slate-500">{book.author?.name ?? '—'} · {book.category?.name ?? '—'}</p><span className="mt-4 inline-flex items-center gap-1 text-xs font-bold text-brand-800">{t('viewAll')} <ArrowRight size={13} /></span></div>
+          <div className="p-4"><div className="line-clamp-2 min-h-10 font-bold text-slate-900">{book.title}</div><p className="mt-1 truncate text-xs text-slate-500">{book.author?.name ?? '—'} · {book.category?.name ?? '—'}</p><p className="mt-2 text-sm font-bold text-brand-800">{currency(book.price ?? 0)}</p><span className="mt-4 inline-flex items-center gap-1 text-xs font-bold text-brand-800">{t('viewAll')} <ArrowRight size={13} /></span></div>
         </Link>)}</div> : <EmptyState title={t('noRecentBooks')} />}
     </section>}
   </div>
 }
+

@@ -34,6 +34,7 @@ const bookSchema = new Schema({
   publisher: { type: String, trim: true, maxlength: 160, default: '' },
   publicationYear: { type: Number, min: 0, max: 3000, default: null },
   coverImage: { type: String, trim: true, default: '' },
+  price: { type: Number, required: true, min: 0, default: 0 },
   shelfLocation: { type: String, trim: true, maxlength: 80, default: '' },
   totalCopies: { type: Number, required: true, min: 0 },
   availableCopies: { type: Number, required: true, min: 0 },
@@ -107,3 +108,4 @@ export const EmailVerification = getModel('EmailVerification', emailVerification
 export const AuditLog = getModel('AuditLog', auditLogSchema)
 export const RateLimitCounter = getModel('RateLimitCounter', rateLimitCounterSchema)
 export const SystemSettings = getModel('SystemSettings', settingsSchema)
+
