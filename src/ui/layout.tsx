@@ -200,10 +200,20 @@ export function Header() {
                     <CircleUserRound size={15} className="text-slate-400" aria-hidden="true" />{isAdmin ? t('changePassword') : t('profile')}
                   </Link>
                   {!isAdmin && <Link to="/change-password" className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] font-medium text-slate-700 hover:bg-slate-50" role="menuitem"><Settings size={15} className="text-slate-400" aria-hidden="true" />{t('changePassword')}</Link>}
-                  <button onClick={logout} className="mt-1 flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] font-medium text-rose-600 hover:bg-rose-50" role="menuitem"><LogOut size={15} aria-hidden="true" />{t('signOut')}</button>
                 </div>
               )}
             </div>
+          )}
+          {user && (
+            <button
+              type="button"
+              onClick={logout}
+              aria-label={t('signOut')}
+              title={t('signOut')}
+              className="hidden h-9 items-center gap-1.5 rounded-lg border border-white/15 px-3 text-[13px] font-semibold text-emerald-50/90 transition hover:border-white/25 hover:bg-white/10 hover:text-white sm:inline-flex"
+            >
+              <LogOut size={15} aria-hidden="true" />{t('signOut')}
+            </button>
           )}
           <button type="button" onClick={() => setMobileOpen(true)} className="grid h-9 w-9 place-items-center rounded-lg text-white transition hover:bg-white/10 lg:hidden" aria-label="Open menu" aria-expanded={mobileOpen}>
             <Menu size={20} aria-hidden="true" />
