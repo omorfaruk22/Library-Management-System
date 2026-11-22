@@ -26,6 +26,9 @@ export default tseslint.config(
     rules: {
       ...reactHooks.configs.recommended.rules,
       'react-refresh/only-export-components': 'off',
+      // Data-loading effects in this app intentionally flip local loading flags
+      // and mirror fetched records into state; the compiler rule flags that
+      // pattern even when it is the clearest option.
       'react-hooks/set-state-in-effect': 'off',
     },
   },

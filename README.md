@@ -2,6 +2,27 @@
 
 A full-stack TypeScript library application using React, Vite, React Router, Tailwind CSS, Express, MongoDB Atlas and Mongoose. The interface supports English and Bangla, with React Query, React Hook Form, Zod, Recharts and Lucide icons.
 
+## Interface and design system
+
+The front end is built on a small in-house kit rather than ad-hoc classes:
+
+- `src/styles.css` defines the design tokens in Tailwind v4 `@theme` blocks — the forest `brand-*` ramp, retuned `slate-*` and `ink-*` scales, the lime accent, paper background, DM Sans / Fraunces / Noto Bengali typography, and the `soft`/`lift` shadows — plus utilities such as `.surface`, `.hero-canvas`, `.data-table`, `.toolbar`, `.skeleton` and `.fade-up`.
+- `src/ui/primitives.tsx` holds the components every screen composes: `Button`, `IconButton`, field wrappers (`Input`, `Select`, `Textarea`), `Card`, `PageTitle`, `Badge`, `Alert`, `Modal`, `TableShell`, `Pagination`, `StatCard`, `EmptyState`, `SkeletonRows`, `CoverCard` and `SegmentedControl`.
+- `src/ui/layout.tsx` provides the sticky header with grouped admin navigation (Library, Circulation, Business), the locale toggle, the account menu and the mobile drawer.
+- `src/ui/marketing.tsx` holds the landing-page pieces (`HeroBadge`, `MetricStrip`, `BrandMark`, `BookGlyph`).
+
+English is the default locale; the Bangla toggle in the header is remembered in `localStorage`. New user-visible strings must be added to both dictionaries in `src/i18n.tsx` — the `t()` helper is typed against the English key set, so a missing translation fails the build.
+
+## Preview mode (no database)
+
+The repository ships a small in-memory API so the UI can be reviewed without MongoDB:
+
+- `demo-server/demoApi.ts` serves the endpoints the React pages call, seeded with a book catalogue, members, loans, reservations, a wishlist, suppliers, sales, purchases, expenses and stock movements.
+- `demo-server/helpers.ts` mounts that handler inside the Vite dev server. `npm run dev:web` therefore serves `/api/*` itself; set `VITE_DEMO_API=off` to proxy `/api` to the Express server on port 4000 instead.
+- On Vercel, `api/index.ts` uses the same handler **only** when `VERCEL_ENV=preview` and `MONGODB_URI` is absent, so preview deployments are clickable while production still talks to Atlas.
+- Demo sign-in accepts any password of four characters or more. Sample accounts: `admin@leafline.example` (staff) and `nusrat.jahan@example.com` (student).
+- `api/preview-demo.test.ts` asserts the demo responses match the shapes the pages consume.
+
 ## Requirements
 
 - Node.js 22.12 or newer and npm
@@ -61,6 +82,17 @@ Mail templates are bilingual. Tokens are random, stored as SHA-256 hashes, singl
 
 The Express API caches its Mongoose connection between warm invocations. Local development runs the same Express app on port 4000 and Vite proxies `/api`.
 
+## Business desk
+
+Sales and purchases are recorded against catalogue books, so selling a copy reduces lendable stock and receiving a delivery increases it.
+
+- **Sales / POS** — multi-line invoices with customer details, discount, partial payment and payment method. Only available copies can be sold; a balance below the total becomes a receivable.
+- **Purchases** — supplier invoices that raise total and available stock, with optional partial payment and payables tracking.
+- **Suppliers** — create and edit vendors, contact details, notes and active/inactive status inline.
+- **Expenses** — ledger of rent, salaries, utilities and other costs, with edit and delete.
+- **Invoices** — every sale and purchase row can open a printable invoice. The print stylesheet isolates the sheet, so *Print → Save as PDF* produces a clean document.
+- **Analytics** — six-month revenue/expense trend, most-borrowed titles and recent activity in one view.
+
 ## Main workflows
 
 - Public visitors can browse, search and filter books by title, ISBN, author, category and availability. Each book has a detail page with publisher, publication year, shelf location, cover URL and live availability.
@@ -74,7 +106,7 @@ The Express API caches its Mongoose connection between warm invocations. Local d
 
 ## Verification commands
 
-- `npm test` — automated tests for loan dates, concurrent inventory/loan limits, duplicate returns, fine calculations, email/password reset tokens, SMTP configuration, persistent rate limits, authorization, inventory edits and Vercel path handling.
+- `npm test` — automated tests for loan dates, concurrent inventory/loan limits, duplicate returns, fine calculations, email/password reset tokens, SMTP configuration, persistent rate limits, authorization, inventory edits, Vercel path handling and the preview API contracts.
 - `npm run lint` — ESLint for frontend, API, server and tests.
 - `npm run build` — frontend TypeScript check and Vite production build.
 - `npm run build:api` — Express/API TypeScript build checks.

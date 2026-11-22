@@ -1,7 +1,67 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Alert, Badge, Button, Card, EmptyState, PageTitle, Spinner } from '../../components'
+import { CalendarClock } from 'lucide-react'
+import { Alert, Badge, Button, Card, CoverCard, EmptyState, PageTitle, Skeleton } from '../../ui/primitives'
 import { api, date, message } from '../../lib/api'
 import { useLocale } from '../../i18n'
-type Item={_id:string;status:string;queuePosition:number;createdAt:string;book:{_id:string;title:string;isbn:string;coverImage?:string;availableCopies:number}}
-export default function ReservationsPage(){const {locale}=useLocale();const bn=locale==='bn';const [items,setItems]=useState<Item[]>([]);const [busy,setBusy]=useState(true);const [error,setError]=useState('');async function load(){try{const r=await api<{items:Item[]}>('/me/reservations');setItems(r.items)}catch(e){setError(message(e))}finally{setBusy(false)}}useEffect(()=>{void load()},[]);return <><PageTitle title={bn?'আমার বুক রিজার্ভেশন':'My reservations'} description={bn?'স্টকে না থাকা বইয়ের অপেক্ষার তালিকা দেখুন।':'Track your place in the queue for unavailable books.'}/>{error&&<Alert message={error}/ >}{busy?<Spinner label={bn?'লোড হচ্ছে':'Loading'}/>:items.length?<div className="space-y-3">{items.map(x=><Card key={x._id} className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center"><div><Link className="font-bold text-slate-900 hover:text-emerald-700" to={'/books/'+x.book._id}>{x.book.title}</Link><p className="mt-1 text-sm text-slate-500">{bn?'অনুরোধ':'Requested'}: {date(x.createdAt)}</p><div className="mt-2 flex items-center gap-2"><Badge tone={x.status==='ready'?'green':'amber'}>{x.status}</Badge>{x.status==='waiting'&&<span className="text-xs text-slate-500">{bn?'সারিতে অবস্থান':'Queue position'}: {x.queuePosition}</span>}</div></div>{x.status==='waiting'&&<Button variant="secondary" onClick={async()=>{try{await api('/me/reservations/'+x._id,{method:'DELETE'});await load()}catch(e){setError(message(e))}}}>{bn?'বাতিল':'Cancel'}</Button>}</Card>)}</div>:<EmptyState title={bn?'কোনো reservation নেই':'No active reservations'} description={bn?'ক্যাটালগে স্টক শেষ হওয়া বই reserve করতে পারবেন।':'Reserve an out-of-stock book from its catalogue detail page.'}/>}</>}
+
+type Item = {
+  _id: string; status: string; queuePosition: number; createdAt: string
+  book: { _id: string; title: string; isbn: string; coverImage?: string; availableCopies: number }
+}
+
+export default function ReservationsPage() {
+  const { t, locale } = useLocale()
+  const bn = locale === 'bn'
+  const [items, setItems] = useState<Item[]>([])
+  const [busy, setBusy] = useState(true)
+  const [error, setError] = useState('')
+  const [cancelling, setCancelling] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    try { const result = await api<{ items: Item[] }>('/me/reservations'); setItems(result.items) }
+    catch (err) { setError(message(err)) } finally { setBusy(false) }
+  }, [])
+  useEffect(() => { void load() }, [load])
+
+  return (
+    <>
+      <PageTitle eyebrow={t('studentArea')} title={bn ? 'আমার রিজার্ভেশন' : 'My reservations'} description={bn ? 'স্টকে না থাকা বইয়ের অপেক্ষার তালিকা।' : 'Your place in the queue for books that are currently out on loan.'} />
+      {error && <div className="mb-4"><Alert message={error} onClose={() => setError('')} /></div>}
+      {busy ? <div className="space-y-3">{Array.from({ length: 2 }).map((_, index) => <Skeleton key={index} className="h-24 w-full" />)}</div>
+        : items.length ? (
+          <div className="space-y-3">
+            {items.map((item) => (
+              <Card key={item._id} className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center">
+                <CoverCard title={item.book.title} src={item.book.coverImage} size="sm" className="h-16 w-11 shrink-0 rounded-lg" />
+                <div className="min-w-0 flex-1">
+                  <Link to={'/books/' + item.book._id} className="block truncate text-[14px] font-semibold text-slate-900 hover:text-brand-800">{item.book.title}</Link>
+                  <p className="mt-0.5 text-[11.5px] text-slate-500">{bn ? 'অনুরোধ' : 'Requested'} {date(item.createdAt)} · {item.book.isbn}</p>
+                  <div className="mt-2 flex items-center gap-2">
+                    <Badge tone={item.status === 'ready' ? 'green' : 'amber'} dot>{item.status === 'ready' ? (bn ? 'প্রস্তুত' : 'Ready to borrow') : item.status}</Badge>
+                    {item.status === 'waiting' && <span className="inline-flex items-center gap-1 text-[11.5px] text-slate-500"><CalendarClock size={12} />{bn ? 'সারিতে' : 'Queue position'} <strong className="text-slate-700">#{item.queuePosition}</strong></span>}
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Link to={'/books/' + item.book._id}><Button size="sm" variant="secondary">{t('details')}</Button></Link>
+                  {item.status === 'waiting' && (
+                    <Button size="sm" variant="ghost" className="text-rose-600 hover:bg-rose-50" loading={cancelling === item._id} onClick={async () => {
+                      setCancelling(item._id)
+                      try { await api('/me/reservations/' + item._id, { method: 'DELETE' }); await load() }
+                      catch (err) { setError(message(err)) } finally { setCancelling(null) }
+                    }}>{bn ? 'বাতিল' : 'Leave queue'}</Button>
+                  )}
+                </div>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <Card>
+            <EmptyState icon={CalendarClock} title={bn ? 'কোনো রিজার্ভেশন নেই' : 'No active reservations'}
+              description={bn ? 'স্টক শেষ হওয়া বইয়ের পাতায় গিয়ে সারিতে যোগ দিতে পারেন।' : 'When every copy of a book is out, open its page and join the queue.'}
+              action={<Link to="/books"><Button>{t('browseBooks')}</Button></Link>} />
+          </Card>
+        )}
+    </>
+  )
+}
