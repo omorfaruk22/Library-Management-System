@@ -16,6 +16,8 @@ import { ChangePasswordPage, ProfilePage } from './pages/Profile'
 
 const AdminReports = lazy(() => import('./pages/AdminReports'))
 const BusinessAnalytics = lazy(() => import('./components/pages/BusinessAnalytics'))
+const WishlistPage = lazy(() => import('./components/pages/WishlistPage'))
+const ReservationsPage = lazy(() => import('./components/pages/ReservationsPage'))
 const SalesPage = lazy(() => import('./pages/BusinessPages').then(m => ({ default: m.SalesPage })))
 const PurchasesPage = lazy(() => import('./pages/BusinessPages').then(m => ({ default: m.PurchasesPage })))
 const SuppliersPage = lazy(() => import('./pages/BusinessPages').then(m => ({ default: m.SuppliersPage })))
@@ -43,7 +45,7 @@ export default function App() {
     <Route path="/reset-password" element={<Guest><ResetPasswordPage /></Guest>} />
     <Route path="/verify-email" element={<VerifyEmailPage />} />
     <Route path="/dashboard" element={<Guard><Dashboard /></Guard>} />
-    <Route path="/issued-books" element={<Guard role="student"><StudentLoans /></Guard>} />
+    <Route path="/issued-books" element={<Guard role="student"><StudentLoans /></Guard>} />`n    <Route path="/wishlist" element={<Guard role="student"><WishlistPage /></Guard>} />`n    <Route path="/reservations" element={<Guard role="student"><ReservationsPage /></Guard>} />
     <Route path="/profile" element={<Guard role="student"><ProfilePage /></Guard>} />
     <Route path="/change-password" element={<Guard><ChangePasswordPage /></Guard>} />
     <Route path="/admin/categories" element={<Guard role="admin"><AdminEntity kind="categories" /></Guard>} />
@@ -60,4 +62,5 @@ export default function App() {
     <Route path="*" element={<Missing />} />
   </Routes></Suspense></Layout>
 }
+
 
