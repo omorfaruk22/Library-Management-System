@@ -172,6 +172,12 @@ describe('preview API', () => {
     expect(String((response.body as { error: string }).error)).toContain('available')
   })
 
+  it('keeps the CSV export and audit log behind the staff role', async () => {
+    const student = await signIn('student')
+    expect((await call('/api/admin/loans/export.csv', { cookie: student })).status).toBe(401)
+    expect((await call('/api/admin/audit-logs', { cookie: student })).status).toBe(401)
+  })
+
   it('exports circulation as CSV and clears the session on logout', async () => {
     const cookie = await signIn('admin')
     const csv = await call('/api/admin/loans/export.csv', { cookie })

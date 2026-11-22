@@ -610,6 +610,7 @@ export async function handleDemoApi(request: DemoRequest): Promise<DemoResult> {
     })
   }
   if (route === '/admin/loans/export.csv') {
+    if (!isAdmin) return fail(401, 'Please sign in to continue.')
     const rows = [['Book', 'ISBN', 'Member', 'Member ID', 'Issued', 'Due', 'Returned', 'Status'], ...loans.map((loan) => {
       const view = loanView(loan)
       return [view.book?.title ?? '', view.book?.isbn ?? '', view.student?.name ?? '', view.student?.studentId ?? '', loan.issuedAt.slice(0, 10), loan.dueAt.slice(0, 10), loan.returnedAt?.slice(0, 10) ?? '', loan.status]
@@ -784,7 +785,7 @@ export async function handleDemoApi(request: DemoRequest): Promise<DemoResult> {
   }
 
   /* audit logs (unused by the UI today, kept for route parity) ---------- */
-  if (route === '/admin/audit-logs') return ok({ logs: [] })
+  if (route === '/admin/audit-logs') return isAdmin ? ok({ logs: [] }) : fail(401, 'Please sign in to continue.')
 
   return fail(404, 'Endpoint not found in the preview API.')
 }
