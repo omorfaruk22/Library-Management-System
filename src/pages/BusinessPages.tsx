@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { CircleDollarSign, Landmark, Plus, Receipt, ShoppingCart, Trash2, TrendingDown, Truck, Wallet } from 'lucide-react'
-import { Alert, Badge, Button, Card, EmptyState, IconButton, Input, PageTitle, Select, SkeletonRows, StatCard, Textarea } from '../ui/primitives'
+import { CircleDollarSign, Landmark, Pencil, Plus, Printer, Receipt, ShoppingCart, Trash2, TrendingDown, Truck, Wallet } from 'lucide-react'
+import { Alert, Badge, Button, Card, EmptyState, IconButton, Input, Modal, PageTitle, Select, SkeletonRows, StatCard, Textarea } from '../ui/primitives'
 import { api, currency, date, message } from '../lib/api'
 import { useLocale } from '../i18n'
 
@@ -9,8 +9,9 @@ type Book = { _id: string; title: string; isbn: string; price: number; available
 type Supplier = { _id: string; name: string; phone?: string; email?: string; address?: string; notes?: string; status: string }
 type Line = { book: string; quantity: number; unitPrice: number }
 type Finance = {
-  _id: string; invoiceNo: string; customerName?: string; supplier?: Supplier | string; total: number
+  _id: string; invoiceNo: string; customerName?: string; customerPhone?: string; supplier?: Supplier | string; total: number
   paidAmount: number; balanceDue: number; paymentStatus: string; createdAt: string; receivedAt?: string
+  subtotal?: number; discount?: number; paymentMethod?: string
   items: Array<{ title: string; quantity: number; unitPrice: number; lineTotal: number }>
 }
 type Expense = { _id: string; description: string; category: string; amount: number; paymentMethod: string; incurredAt: string; notes?: string }
@@ -64,8 +65,9 @@ function Method({ value, onChange }: { value: string; onChange: (value: string) 
 }
 
 function FinanceTable({ rows, kind, reload }: { rows: Finance[]; kind: 'sales' | 'purchases'; reload: () => void }) {
-  const { locale } = useLocale()
+  const { t, locale } = useLocale()
   const bn = locale === 'bn'
+  const [printing, setPrinting] = useState<Finance | null>(null)
   return (
     <div className="overflow-x-auto">
       <table className="data-table min-w-[880px]">
@@ -73,7 +75,7 @@ function FinanceTable({ rows, kind, reload }: { rows: Finance[]; kind: 'sales' |
           <tr>
             <th>{bn ? 'ইনভয়েস' : 'Invoice'}</th><th>{bn ? 'তারিখ' : 'Date'}</th><th>{bn ? 'আইটেম' : 'Items'}</th>
             <th className="text-right">{bn ? 'মোট' : 'Total'}</th><th className="text-right">{bn ? 'পরিশোধ' : 'Paid'}</th>
-            <th className="text-right">{bn ? 'বাকি' : 'Due'}</th><th>{bn ? 'অবস্থা' : 'Status'}</th><th className="text-right">{bn ? 'আদায়' : 'Collect'}</th>
+            <th className="text-right">{bn ? 'বাকি' : 'Due'}</th><th>{bn ? 'অবস্থা' : 'Status'}</th><th className="text-right">{bn ? 'আদায়' : 'Collect'}</th><th className="no-print text-right">{bn ? 'প্রিন্ট' : 'Print'}</th>
           </tr>
         </thead>
         <tbody>
@@ -92,10 +94,26 @@ function FinanceTable({ rows, kind, reload }: { rows: Finance[]; kind: 'sales' |
               <td className={'text-right font-semibold ' + (row.balanceDue > 0 ? 'text-amber-700' : 'text-emerald-700')}>{currency(row.balanceDue)}</td>
               <td><Badge tone={row.paymentStatus === 'paid' ? 'green' : row.paymentStatus === 'partial' ? 'amber' : 'red'}>{row.paymentStatus}</Badge></td>
               <td className="text-right">{row.balanceDue > 0 ? <Collect id={row._id} kind={kind} reload={reload} /> : <span className="text-[11.5px] text-slate-400">Settled</span>}</td>
+              <td className="no-print text-right"><IconButton label={bn ? 'ইনভয়েস প্রিন্ট' : 'Print invoice'} icon={Printer} onClick={() => setPrinting(row)} /></td>
             </tr>
           ))}
         </tbody>
       </table>
+      {printing && (
+        <Modal
+          title={`${kind === 'sales' ? t('invoice') : t('purchases')} · ${printing.invoiceNo}`}
+          description={bn ? 'প্রিন্ট করুন অথবা PDF হিসেবে সেভ করুন।' : 'Print it, or save it as a PDF from the print dialog.'}
+          onClose={() => setPrinting(null)}
+          footer={<>
+            <Button variant="secondary" onClick={() => setPrinting(null)}>{t('cancel')}</Button>
+            <Button onClick={() => window.print()}><Printer size={15} />{bn ? 'প্রিন্ট / PDF' : 'Print / save PDF'}</Button>
+          </>}
+        >
+          <div id="invoice-print" className="rounded-xl border border-slate-200 p-4">
+            <InvoiceDocument record={printing} kind={kind} />
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }
@@ -114,6 +132,84 @@ function Collect({ id, kind, reload }: { id: string; kind: 'sales' | 'purchases'
       <input aria-label="Payment amount" className="h-8 w-20 rounded-lg border border-slate-200 px-2 text-[12px]" type="number" min="1" placeholder={locale === 'bn' ? 'টাকা' : 'Amount'} value={amount} onChange={(event) => setAmount(event.target.value)} required />
       <Button size="sm" className="h-8">{locale === 'bn' ? 'আদায়' : 'Collect'}</Button>
     </form>
+  )
+}
+
+const METHOD_LABEL: Record<string, string> = { cash: 'Cash', mobile: 'Mobile banking', card: 'Card', bank: 'Bank transfer' }
+
+/** Printable invoice. Hidden on screen, shown by the print stylesheet. */
+function InvoiceDocument({ record, kind }: { record: Finance; kind: 'sales' | 'purchases' }) {
+  const supplierName = typeof record.supplier === 'object' ? record.supplier?.name : record.supplier
+  const counterparty = kind === 'sales' ? record.customerName || 'Walk-in customer' : supplierName || 'Supplier'
+  return (
+    <div className="invoice-sheet space-y-5 text-[12.5px] text-slate-800">
+      <header className="flex items-start justify-between gap-6 border-b border-slate-200 pb-4">
+        <div>
+          <p className="font-display text-lg font-semibold text-brand-900">Leafline Library</p>
+          <p className="mt-1 text-[11.5px] leading-5 text-slate-500">Pata Poth Library · Chattogram<br />library@leafline.example · 01800 000 000</p>
+        </div>
+        <div className="text-right">
+          <p className="text-[10.5px] font-bold uppercase tracking-[0.18em] text-slate-400">{kind === 'sales' ? 'Sales invoice' : 'Purchase record'}</p>
+          <p className="mt-1 font-mono text-sm font-semibold text-slate-900">{record.invoiceNo}</p>
+          <p className="mt-0.5 text-[11.5px] text-slate-500">{date(record.createdAt)}</p>
+        </div>
+      </header>
+
+      <section className="grid grid-cols-2 gap-4">
+        <div>
+          <p className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-slate-400">{kind === 'sales' ? 'Customer' : 'Supplier'}</p>
+          <p className="mt-1 font-semibold text-slate-900">{counterparty}</p>
+          {kind === 'sales' && record.customerPhone && <p className="text-[11.5px] text-slate-500">{record.customerPhone}</p>}
+        </div>
+        <div className="text-right">
+          <p className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-slate-400">Payment</p>
+          <p className="mt-1 font-semibold capitalize text-slate-900">{METHOD_LABEL[record.paymentMethod ?? ''] ?? record.paymentMethod ?? '—'}</p>
+          <p className="text-[11.5px] capitalize text-slate-500">{record.paymentStatus}</p>
+        </div>
+      </section>
+
+      <table className="w-full border-collapse text-[12px]">
+        <thead>
+          <tr className="border-y border-slate-200 text-left text-[10.5px] uppercase tracking-[0.12em] text-slate-500">
+            <th className="py-2 font-semibold">Item</th>
+            <th className="py-2 text-right font-semibold">Qty</th>
+            <th className="py-2 text-right font-semibold">{kind === 'sales' ? 'Price' : 'Cost'}</th>
+            <th className="py-2 text-right font-semibold">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {record.items.map((item, index) => (
+            <tr key={`${item.title}-${index}`} className="border-b border-slate-100">
+              <td className="py-2 pr-2">{item.title}</td>
+              <td className="py-2 text-right tabular-nums">{item.quantity}</td>
+              <td className="py-2 text-right tabular-nums">{currency(item.unitPrice)}</td>
+              <td className="py-2 text-right font-medium tabular-nums">{currency(item.lineTotal)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      <section className="ml-auto w-full max-w-[260px] space-y-1.5">
+        <Row label="Subtotal" value={currency(record.subtotal ?? record.total + (record.discount ?? 0))} />
+        {record.discount ? <Row label="Discount" value={`− ${currency(record.discount)}`} /> : null}
+        <Row label="Total" value={currency(record.total)} strong />
+        <Row label="Paid" value={currency(record.paidAmount)} />
+        <Row label="Balance due" value={currency(record.balanceDue)} strong />
+      </section>
+
+      <p className="border-t border-slate-200 pt-3 text-[10.5px] leading-5 text-slate-400">
+        Generated from the Leafline circulation ledger. Books sold are deducted from lendable stock; returns and exchanges follow the library refund policy.
+      </p>
+    </div>
+  )
+}
+
+function Row({ label, value, strong = false }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <div className={'flex items-baseline justify-between gap-3 ' + (strong ? 'text-slate-900' : 'text-slate-600')}>
+      <span className={strong ? 'font-semibold' : ''}>{label}</span>
+      <span className={'tabular-nums ' + (strong ? 'font-display text-[13.5px] font-semibold' : '')}>{value}</span>
+    </div>
   )
 }
 
@@ -293,6 +389,9 @@ export function SuppliersPage() {
   const [rows, setRows] = useState<Supplier[]>([])
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState({ name: '', phone: '', email: '', address: '', notes: '' })
+  const [editing, setEditing] = useState<Supplier | null>(null)
+  const [editBusy, setEditBusy] = useState(false)
+  const [editError, setEditError] = useState('')
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
@@ -339,15 +438,52 @@ export function SuppliersPage() {
                 <li key={supplier._id} className="flex items-start gap-3 px-5 py-3.5">
                   <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-50 text-[13px] font-bold text-brand-800">{supplier.name.slice(0, 1).toUpperCase()}</span>
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2"><p className="truncate text-[13.5px] font-semibold text-slate-900">{supplier.name}</p><Badge tone={supplier.status === 'active' ? 'green' : 'slate'}>{supplier.status}</Badge></div>
-                    <p className="mt-0.5 truncate text-[11.5px] text-slate-500">{[supplier.phone, supplier.email, supplier.address].filter(Boolean).join(' · ') || 'No contact details'}</p>
+                    <div className="flex items-center gap-2"><p className="truncate text-[13.5px] font-semibold text-slate-900">{supplier.name}</p><Badge tone={supplier.status === 'active' ? 'green' : 'slate'}>{supplier.status === 'active' ? t('active') : t('inactive')}</Badge></div>
+                    <p className="mt-0.5 truncate text-[11.5px] text-slate-500">{[supplier.phone, supplier.email, supplier.address].filter(Boolean).join(' · ') || (bn ? 'যোগাযোগের তথ্য নেই' : 'No contact details')}</p>
+                    {supplier.notes && <p className="mt-0.5 truncate text-[11.5px] italic text-slate-400">{supplier.notes}</p>}
                   </div>
+                  <IconButton label={bn ? 'সাপ্লায়ার সম্পাদনা' : 'Edit supplier'} icon={Pencil} onClick={() => setEditing(supplier)} />
                 </li>
               ))}
             </ul>
           ) : <EmptyState icon={Landmark} title={bn ? 'কোনো সাপ্লায়ার নেই' : 'No suppliers yet'} description="Add a vendor to start receiving stock." />}
         </Card>
       </div>
+
+      {editing && (
+        <Modal
+          title={bn ? 'সাপ্লায়ার সম্পাদনা' : 'Edit supplier'}
+          description={editing.name}
+          onClose={() => { setEditing(null); setEditError('') }}
+          footer={<>
+            <Button variant="secondary" onClick={() => setEditing(null)}>{t('cancel')}</Button>
+            <Button type="submit" form="supplier-edit" loading={editBusy}><Pencil size={14} />{t('save')}</Button>
+          </>}
+        >
+          {editError && <div className="mb-3"><Alert message={editError} onClose={() => setEditError('')} /></div>}
+          <form id="supplier-edit" className="space-y-3" onSubmit={async (event) => {
+            event.preventDefault(); setEditBusy(true); setEditError('')
+            try {
+              await api(`/admin/business/suppliers/${editing._id}`, { method: 'PUT', body: JSON.stringify({ name: editing.name, phone: editing.phone ?? '', email: editing.email ?? '', address: editing.address ?? '', notes: editing.notes ?? '', status: editing.status }) })
+              setEditing(null)
+              setNotice(bn ? 'সাপ্লায়ারের তথ্য হালনাগাদ হয়েছে।' : 'Supplier details updated.')
+              load()
+            } catch (err) { setEditError(message(err)) } finally { setEditBusy(false) }
+          }}>
+            <Input label={t('name')} required value={editing.name} onChange={(event) => setEditing({ ...editing, name: event.target.value })} />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Input label={bn ? 'ফোন' : 'Phone'} value={editing.phone ?? ''} onChange={(event) => setEditing({ ...editing, phone: event.target.value })} />
+              <Input label="Email" type="email" value={editing.email ?? ''} onChange={(event) => setEditing({ ...editing, email: event.target.value })} />
+            </div>
+            <Input label={bn ? 'ঠিকানা' : 'Address'} value={editing.address ?? ''} onChange={(event) => setEditing({ ...editing, address: event.target.value })} />
+            <Textarea label={bn ? 'নোট' : 'Notes'} rows={2} value={editing.notes ?? ''} onChange={(event) => setEditing({ ...editing, notes: event.target.value })} />
+            <Select label={t('status')} value={editing.status} onChange={(event) => setEditing({ ...editing, status: event.target.value })}>
+              <option value="active">{t('active')}</option>
+              <option value="inactive">{t('inactive')}</option>
+            </Select>
+          </form>
+        </Modal>
+      )}
     </>
   )
 }
@@ -358,6 +494,9 @@ export function ExpensesPage() {
   const [rows, setRows] = useState<Expense[]>([])
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState({ description: '', category: 'utilities', amount: '', paymentMethod: 'cash', notes: '' })
+  const [editing, setEditing] = useState<Expense | null>(null)
+  const [editBusy, setEditBusy] = useState(false)
+  const [editError, setEditError] = useState('')
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
@@ -408,7 +547,7 @@ export function ExpensesPage() {
         {loading ? <SkeletonRows rows={4} /> : rows.length ? (
           <div className="overflow-x-auto">
             <table className="data-table min-w-[660px]">
-              <thead><tr><th>{bn ? 'তারিখ' : 'Date'}</th><th>{bn ? 'বিবরণ' : 'Description'}</th><th>{bn ? 'ধরন' : 'Category'}</th><th>{bn ? 'মাধ্যম' : 'Method'}</th><th className="text-right">{bn ? 'পরিমাণ' : 'Amount'}</th></tr></thead>
+              <thead><tr><th>{bn ? 'তারিখ' : 'Date'}</th><th>{bn ? 'বিবরণ' : 'Description'}</th><th>{bn ? 'ধরন' : 'Category'}</th><th>{bn ? 'মাধ্যম' : 'Method'}</th><th className="text-right">{bn ? 'পরিমাণ' : 'Amount'}</th><th className="text-right">{t('actions')}</th></tr></thead>
               <tbody>
                 {rows.map((row) => (
                   <tr key={row._id}>
@@ -417,6 +556,16 @@ export function ExpensesPage() {
                     <td><Badge tone="slate">{row.category}</Badge></td>
                     <td className="text-[12px] capitalize text-slate-600">{row.paymentMethod}</td>
                     <td className="text-right font-semibold text-rose-700">−{currency(row.amount)}</td>
+                    <td className="text-right">
+                      <div className="inline-flex gap-1">
+                        <IconButton label={bn ? 'খরচ সম্পাদনা' : 'Edit expense'} icon={Pencil} onClick={() => setEditing(row)} />
+                        <IconButton label={bn ? 'খরচ মুছুন' : 'Delete expense'} icon={Trash2} onClick={async () => {
+                          if (!window.confirm(bn ? 'এই খরচটি মুছে ফেলবেন?' : `Delete “${row.description}”? This cannot be undone.`)) return
+                          try { await api(`/admin/business/expenses/${row._id}`, { method: 'DELETE' }); setNotice(bn ? 'খরচ মুছে ফেলা হয়েছে।' : 'Expense deleted.'); load() }
+                          catch (err) { setError(message(err)) }
+                        }} />
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -424,6 +573,39 @@ export function ExpensesPage() {
           </div>
         ) : <EmptyState icon={Wallet} title={bn ? 'কোনো খরচ নেই' : 'No expenses recorded'} description="Add rent, salaries or utilities to keep the ledger complete." />}
       </Card>
+
+      {editing && (
+        <Modal
+          title={bn ? 'খরচ সম্পাদনা' : 'Edit expense'}
+          description={editing.description}
+          onClose={() => { setEditing(null); setEditError('') }}
+          footer={<>
+            <Button variant="secondary" onClick={() => setEditing(null)}>{t('cancel')}</Button>
+            <Button type="submit" form="expense-edit" loading={editBusy}><Pencil size={14} />{t('save')}</Button>
+          </>}
+        >
+          {editError && <div className="mb-3"><Alert message={editError} onClose={() => setEditError('')} /></div>}
+          <form id="expense-edit" className="space-y-3" onSubmit={async (event) => {
+            event.preventDefault(); setEditBusy(true); setEditError('')
+            try {
+              await api(`/admin/business/expenses/${editing._id}`, { method: 'PUT', body: JSON.stringify({ ...editing, amount: Number(editing.amount) }) })
+              setEditing(null)
+              setNotice(bn ? 'খরচ হালনাগাদ হয়েছে।' : 'Expense updated.')
+              load()
+            } catch (err) { setEditError(message(err)) } finally { setEditBusy(false) }
+          }}>
+            <Input label={bn ? 'বিবরণ' : 'Description'} required value={editing.description} onChange={(event) => setEditing({ ...editing, description: event.target.value })} />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Select label={bn ? 'খরচের ধরন' : 'Category'} value={editing.category} onChange={(event) => setEditing({ ...editing, category: event.target.value })}>
+                {categories.map((category) => <option key={category} value={category}>{category}</option>)}
+              </Select>
+              <Input label={bn ? 'পরিমাণ (৳)' : 'Amount (BDT)'} type="number" min="1" required value={editing.amount} onChange={(event) => setEditing({ ...editing, amount: Number(event.target.value) })} />
+            </div>
+            <Method value={editing.paymentMethod} onChange={(value) => setEditing({ ...editing, paymentMethod: value })} />
+            <Textarea label={bn ? 'নোট' : 'Notes'} rows={2} value={editing.notes ?? ''} onChange={(event) => setEditing({ ...editing, notes: event.target.value })} />
+          </form>
+        </Modal>
+      )}
     </>
   )
 }

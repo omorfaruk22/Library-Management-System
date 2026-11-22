@@ -228,4 +228,17 @@ html[lang="bn"] h1, html[lang="bn"] h2, html[lang="bn"] h3, html[lang="bn"] .fon
   .app-header, .app-footer, .no-print { display: none !important; }
   body { background: #fff; }
   .surface { box-shadow: none; border-color: #ccc; }
+
+  /* When an invoice dialog is open, print only the invoice sheet. */
+  body:has(#invoice-print) *:not(#invoice-print, #invoice-print *) { visibility: hidden; }
+  body:has(#invoice-print) #invoice-print {
+    position: fixed;
+    inset: 0 auto auto 0;
+    width: 100%;
+    border: 0 !important;
+    padding: 0 !important;
+    visibility: visible;
+  }
+  body:has(#invoice-print) #invoice-print * { visibility: visible; }
+  @page { margin: 16mm 14mm; }
 }

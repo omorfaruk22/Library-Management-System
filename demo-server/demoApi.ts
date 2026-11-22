@@ -254,11 +254,10 @@ function loanView(loan: Loan) {
   }
 }
 
-function financeView<T extends Sale | Purchase>(record: T, kind: 'sales' | 'purchases') {
-  return {
-    ...record,
-    supplier: kind === 'purchases' ? (() => { const supplier = suppliers.find((item) => item._id === (record as Purchase).supplier); return supplier ? { _id: supplier._id, name: supplier.name } : null })() : undefined,
-  }
+function financeView(record: Sale | Purchase, kind: 'sales' | 'purchases') {
+  const supplierId = kind === 'purchases' ? (record as Purchase).supplier : ''
+  const supplier = suppliers.find((item) => item._id === supplierId)
+  return { ...record, supplier: supplier ? { _id: supplier._id, name: supplier.name } : null }
 }
 
 function movementView(movement: Movement) {
@@ -620,6 +619,24 @@ export async function handleDemoApi(request: DemoRequest): Promise<DemoResult> {
       lowStock: books.filter((book) => book.availableCopies <= 3).length,
     })
   }
+  if (route.startsWith('/admin/business/suppliers/')) {
+    if (!isAdmin) return fail(401, 'Please sign in to continue.')
+    const supplier = suppliers.find((item) => item._id === route.slice('/admin/business/suppliers/'.length))
+    if (!supplier) return fail(404, 'Supplier not found.')
+    if (request.method === 'PUT') {
+      Object.assign(supplier, {
+        name: String(request.body.name ?? supplier.name), phone: String(request.body.phone ?? supplier.phone),
+        email: String(request.body.email ?? supplier.email), address: String(request.body.address ?? supplier.address),
+        notes: String(request.body.notes ?? supplier.notes), status: request.body.status === 'inactive' ? 'inactive' : 'active',
+      })
+      return ok({ supplier })
+    }
+    if (request.method === 'DELETE') {
+      if (purchases.some((purchase) => purchase.supplier === supplier._id)) return fail(409, 'This supplier has purchase history and cannot be deleted.')
+      suppliers.splice(suppliers.indexOf(supplier), 1)
+      return ok({ ok: true })
+    }
+  }
   if (route === '/admin/business/suppliers') {
     if (!isAdmin) return fail(401, 'Please sign in to continue.')
     if (request.method === 'POST') {
@@ -686,7 +703,25 @@ export async function handleDemoApi(request: DemoRequest): Promise<DemoResult> {
     if (amount > record.balanceDue) return fail(400, 'Payment cannot exceed balance due.')
     record.paidAmount += amount; record.balanceDue -= amount
     record.paymentStatus = record.balanceDue === 0 ? 'paid' : 'partial'
-    return ok({ record })
+    return ok(kind === 'sales' ? { sale: record } : { purchase: financeView(record, 'purchases') })
+  }
+  if (route.startsWith('/admin/business/expenses/')) {
+    if (!isAdmin) return fail(401, 'Please sign in to continue.')
+    const index = expenses.findIndex((item) => item._id === route.slice('/admin/business/expenses/'.length))
+    if (index < 0) return fail(404, 'Expense not found.')
+    if (request.method === 'PUT') {
+      const current = expenses[index]
+      expenses[index] = {
+        ...current,
+        description: String(request.body.description ?? current.description),
+        category: String(request.body.category ?? current.category),
+        amount: Math.max(1, Number(request.body.amount ?? current.amount)),
+        paymentMethod: String(request.body.paymentMethod ?? current.paymentMethod),
+        notes: String(request.body.notes ?? current.notes),
+      }
+      return ok({ expense: expenses[index] })
+    }
+    if (request.method === 'DELETE') { expenses.splice(index, 1); return ok({ ok: true }) }
   }
   if (route === '/admin/business/expenses') {
     if (!isAdmin) return fail(401, 'Please sign in to continue.')

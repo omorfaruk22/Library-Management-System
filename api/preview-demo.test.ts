@@ -120,6 +120,34 @@ describe('preview API', () => {
     expect(analytics.topBooks.length).toBeGreaterThan(0)
   })
 
+  it('edits and deletes suppliers and expenses', async () => {
+    const cookie = await signIn('admin')
+
+    const updatedSupplier = await call('/api/admin/business/suppliers/sup_3', { method: 'PUT', cookie, body: { name: 'Chittagong Academic Supply', phone: '031 611 999', email: 'hi@cas.example', address: 'Agrabad', notes: 'Weekly', status: 'inactive' } })
+    expect(updatedSupplier.body).toMatchObject({ supplier: { name: 'Chittagong Academic Supply', status: 'inactive' } })
+
+    const blocked = await call('/api/admin/business/suppliers/sup_1', { method: 'DELETE', cookie })
+    expect(blocked.status).toBe(409)
+
+    const created = (await call('/api/admin/business/expenses', { method: 'POST', cookie, body: { description: 'Temp expense', category: 'other', amount: 900 } })).body as { expense: { _id: string } }
+    const updated = await call(`/api/admin/business/expenses/${created.expense._id}`, { method: 'PUT', cookie, body: { description: 'Renamed expense', amount: 1200, category: 'other', paymentMethod: 'cash' } })
+    expect(updated.body).toMatchObject({ expense: { description: 'Renamed expense', amount: 1200 } })
+
+    const removed = await call(`/api/admin/business/expenses/${created.expense._id}`, { method: 'DELETE', cookie })
+    expect(removed.status).toBe(200)
+    expect((await call(`/api/admin/business/expenses/${created.expense._id}`, { method: 'DELETE', cookie })).status).toBe(404)
+  })
+
+  it('applies payments to the outstanding balance', async () => {
+    const cookie = await signIn('admin')
+    const collected = await call('/api/admin/business/sales/sale_2/payments', { method: 'POST', cookie, body: { amount: 1000, paymentMethod: 'cash' } })
+    expect(collected.status).toBe(200)
+    expect(collected.body).toMatchObject({ sale: { paymentStatus: 'partial' } })
+
+    const over = await call('/api/admin/business/sales/sale_2/payments', { method: 'POST', cookie, body: { amount: 999999, paymentMethod: 'cash' } })
+    expect(over.status).toBe(400)
+  })
+
   it('gives students their own loans, reservations and wishlist', async () => {
     const cookie = await signIn('student')
 
